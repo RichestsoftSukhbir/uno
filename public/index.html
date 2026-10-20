@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#0b3d2c">
+  <meta name="description" content="Play UNO Classic, Flip, No Mercy, All Wild, Attack, Liar's, Dare and DOS in 3D - against the computer, pass & play, or online with friends.">
+  <title>UNO Arena</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&display=swap">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="app">
+
+    <!-- HOME -->
+    <section id="screen-home" class="screen active">
+      <!-- sticky nav -->
+      <nav class="lp-nav" id="lpNav">
+        <a class="lp-brand" href="#" data-scroll="top"><img src="img/uno-logo.svg" alt="UNO"><span>ARENA</span></a>
+        <div class="lp-links">
+          <a href="#" data-scroll="modes">Game modes</a>
+          <a href="#" data-scroll="how">How it works</a>
+          <a href="#" id="navRules">Rules</a>
+        </div>
+        <div class="lp-nav-r">
+          <button class="lp-round" id="btnSettingsHome" title="Settings"><i data-icon="settings-01"></i></button>
+          <button class="cta cta-yellow cta-sm" id="navPlay"><i data-icon="play"></i> Play now</button>
+        </div>
+      </nav>
+
+      <!-- hero -->
+      <header class="lp-hero" id="lpTop">
+        <div class="lp-hero-bg"><div class="lp-rays"></div><div class="lp-oval"></div><div class="home-cards" id="homeCards"></div></div>
+        <div class="lp-hero-in">
+          <div class="lp-copy">
+            <span class="lp-kicker"><i data-icon="party"></i> The ultimate card-game party</span>
+            <img class="lp-logo" src="img/uno-logo.svg" alt="UNO">
+            <div class="lp-arena">ARENA</div>
+            <p class="lp-sub">Classic, Flip, No Mercy, Liar's, Dare, DOS and more &mdash; in real 3D.
+              Battle smart CPUs, pass one phone around, or invite friends online.</p>
+            <div class="lp-ctas">
+              <button class="cta cta-yellow cta-lg" id="btnQuick"><span class="cta-ic"><i data-icon="flash"></i></span><span><b>Quick Play</b><small>vs 3 CPUs</small></span></button>
+              <button class="cta cta-blue cta-lg" id="btnOnline"><span class="cta-ic"><i data-icon="globe"></i></span><span><b>Play Online</b><small>rooms &amp; invite links</small></span></button>
+              <button class="cta cta-green cta-lg" id="btnPassPlay"><span class="cta-ic"><i data-icon="smart-phone-01"></i></span><span><b>Pass &amp; Play</b><small>one device, many friends</small></span></button>
+            </div>
+            <button class="lp-howto" id="btnHowTo"><i data-icon="book-open-01"></i> New to UNO? Learn the rules with animated demos</button>
+          </div>
+          <div class="lp-stage" id="lpStage">
+            <div class="lp-fan" id="lpFan"></div>
+            <div class="lp-sticker">UNO!</div>
+          </div>
+        </div>
+        <div class="lp-features">
+          <span><i data-icon="cards-01"></i> 8 game modes</span>
+          <span><i data-icon="robot-01"></i> Smart CPU players</span>
+          <span><i data-icon="globe"></i> Online rooms</span>
+          <span><i data-icon="smart-phone-01"></i> Pass &amp; play</span>
+          <span><i data-icon="wifi-01"></i> Works offline</span>
+          <span><i data-icon="game-controller-01"></i> Real 3D cards</span>
+        </div>
+      </header>
+
+      <!-- modes -->
+      <section class="lp-section" id="lpModes">
+        <div class="lp-sec-head"><span class="lp-pill">Pick your poison</span><h2>Choose a game mode</h2><p>Every official twist on the world's favourite card game &mdash; with all the real rules.</p></div>
+        <div class="mode-grid" id="variantGrid"></div>
+      </section>
+
+      <!-- how it works -->
+      <section class="lp-section lp-how" id="lpHow">
+        <div class="lp-sec-head"><span class="lp-pill">Easy as 1, 2, 3</span><h2>How it works</h2></div>
+        <div class="how-grid">
+          <div class="how-step"><img class="how-card" data-face="r1" alt="1"><h3>Pick a mode</h3><p>Classic for beginners, No Mercy for the brave, Liar's for the sneaky.</p></div>
+          <div class="how-step"><img class="how-card" data-face="y2" alt="2"><h3>Gather players</h3><p>Add up to 9 CPUs, share one phone, or send an invite link to friends.</p></div>
+          <div class="how-step"><img class="how-card" data-face="g3" alt="3"><h3>Shout UNO!</h3><p>Match colours and numbers, drop action cards &mdash; and don't forget to call it!</p></div>
+        </div>
+        <div class="lp-final">
+          <h2>Ready to play your first card?</h2>
+          <button class="cta cta-red cta-lg" id="btnFinalPlay"><span class="cta-ic"><i data-icon="play"></i></span><span><b>Start a game</b><small>no sign-up needed</small></span></button>
+        </div>
+      </section>
+
+      <footer class="home-foot"><img src="img/uno-logo.svg" alt=""><p>Card art based on the "UNO Classic cards deck" SVG. Icons by Hugeicons.<br>UNO is a trademark of Mattel &mdash; this is a non-commercial fan project.</p></footer>
+    </section>
+
+    <!-- SETUP -->
+    <section id="screen-setup" class="screen">
+      <div class="panel setup">
+        <div class="setup-head">
+          <button class="btn icon ghost" data-back title="Back"><i data-icon="arrow-left-01"></i></button>
+          <div class="setup-title"><img id="setupCard" alt=""><div><h2 id="setupName"></h2><p id="setupTag"></p></div></div>
+          <button class="btn ghost" id="setupRules"><i data-icon="book-open-01"></i> Rules</button>
+        </div>
+        <div class="tabs" id="modeTabs">
+          <button data-mode="cpu" class="active"><i data-icon="robot-01"></i> vs Computer</button>
+          <button data-mode="pass"><i data-icon="smart-phone-01"></i> Pass &amp; Play</button>
+          <button data-mode="online"><i data-icon="globe"></i> Online</button>
+        </div>
+        <div class="setup-body">
+          <div class="mode-pane" data-pane="cpu">
+            <div class="row"><label>Your name</label><div class="name-row"><button class="avatar-pick" id="cpuAvatar"></button><input id="cpuName" maxlength="16" placeholder="Your name"></div></div>
+            <div class="row"><label>Opponents</label><div class="stepper"><button data-step="-1">−</button><span id="cpuCount">3</span><button data-step="1">+</button></div></div>
+            <div class="row"><label>Difficulty</label><div class="seg" id="cpuLevel"><button data-v="easy">Easy</button><button data-v="normal" class="active">Normal</button><button data-v="hard">Hard</button><button data-v="mixed">Mixed</button></div></div>
+          </div>
+          <div class="mode-pane hidden" data-pane="pass">
+            <p class="hint">Everyone shares this device. Add human players (and optionally CPUs).</p>
+            <div id="passPlayers" class="player-list"></div>
+            <div class="row-btns"><button class="btn" id="passAddHuman">+ Human</button><button class="btn" id="passAddBot">+ CPU</button></div>
+          </div>
+          <div class="mode-pane hidden" data-pane="online">
+            <div class="row"><label>Your name</label><div class="name-row"><button class="avatar-pick" id="onAvatar"></button><input id="onName" maxlength="16" placeholder="Your name"></div></div>
+            <div class="online-split">
+              <div class="online-box">
+                <h3>Create a room</h3>
+                <label class="check"><input type="checkbox" id="onPublic" checked> List publicly</label>
+                <button class="btn primary" id="onCreate">Create room</button>
+              </div>
+              <div class="online-box">
+                <h3>Join with code</h3>
+                <input id="onCode" maxlength="5" placeholder="ABCDE" class="code-input">
+                <button class="btn" id="onJoin">Join</button>
+              </div>
+            </div>
+            <div class="online-box"><h3>Open rooms <button class="btn tiny ghost" id="onRefresh" title="Refresh"><i data-icon="refresh"></i></button></h3><div id="roomList" class="room-list"><p class="hint">Connecting…</p></div></div>
+            <p class="hint" id="netStatus"></p>
+          </div>
+          <details class="house" id="houseRules" open><summary>Rules &amp; options</summary><div id="optForm" class="opt-form"></div></details>
+        </div>
+        <div class="setup-foot"><button class="btn big primary" id="btnStart">Start game</button></div>
+      </div>
+    </section>
+
+    <!-- LOBBY -->
+    <section id="screen-lobby" class="screen">
+      <div class="panel lobby">
+        <div class="setup-head">
+          <button class="btn icon ghost" id="lobbyLeave" title="Leave room"><i data-icon="arrow-left-01"></i></button>
+          <div><h2>Room <span id="lobbyCode" class="code"></span></h2><p id="lobbyVariant"></p></div>
+          <button class="btn" id="lobbyCopy"><i data-icon="link-01"></i> Copy invite link</button>
+        </div>
+        <div class="lobby-body">
+          <div>
+            <h3>Players</h3>
+            <div id="lobbySeats" class="player-list"></div>
+            <div class="row-btns host-only"><button class="btn" data-bot="easy">+ CPU easy</button><button class="btn" data-bot="normal">+ CPU normal</button><button class="btn" data-bot="hard">+ CPU hard</button></div>
+            <div class="host-only row"><label>Game</label><select id="lobbyVariantSel"></select></div>
+            <div class="host-only"><details class="house" open><summary>Rules &amp; options</summary><div id="lobbyOpts" class="opt-form"></div></details></div>
+          </div>
+          <div class="chat-box">
+            <h3>Chat</h3>
+            <div class="chat-log" id="lobbyChat"></div>
+            <form class="chat-form" id="lobbyChatForm"><input placeholder="Say something…" maxlength="200"><button class="btn">Send</button></form>
+          </div>
+        </div>
+        <div class="setup-foot"><span id="lobbyWait" class="hint"></span><button class="btn big primary host-only" id="lobbyStart">Start game</button></div>
+      </div>
+    </section>
+
+    <!-- GAME -->
+    <section id="screen-game" class="screen">
+      <div id="tableRoot" class="table-root"></div>
+
+      <div class="hud-top">
+        <button class="btn icon glass" id="btnMenu" title="Menu (Esc)"><i data-icon="menu-01"></i></button>
+        <div class="hud-title"><img class="hud-logo" src="img/uno-logo.svg" alt="UNO"><div class="hud-name"><b id="hudVariant"></b><span id="hudRound"></span></div></div>
+        <div class="hud-top-r">
+          <button class="btn icon glass" id="btnLog" title="Game log"><i data-icon="scroll-text"></i></button>
+          <button class="btn icon glass hidden" id="btnChat" title="Chat"><i data-icon="bubble-chat"></i><i class="dot hidden" id="chatDot"></i></button>
+          <button class="btn icon glass" id="btnRules" title="Rules"><i data-icon="book-open-01"></i></button>
+          <button class="btn icon glass" id="btnSound" title="Sound"><i data-icon="volume-high"></i></button>
+          <button class="btn icon glass" id="btnSettingsGame" title="Settings"><i data-icon="settings-01"></i></button>
+        </div>
+      </div>
+
+      <div class="hud-status" id="hudStatus"></div>
+      <div class="timer-bar hidden" id="timerBar"><i></i></div>
+
+      <div class="me-panel" id="mePanel">
+        <div class="me-av" id="meAv"></div>
+        <div><b id="meName"></b><span id="meMeta"></span></div>
+      </div>
+
+      <div class="prompt" id="prompt"></div>
+
+      <div class="actions">
+        <button class="act-btn ab-red hidden" id="btnCatch"><span class="ab-ic"><i data-icon="alert-02"></i></span><span class="ab-txt">Catch!</span></button>
+        <button class="act-btn ab-green hidden" id="btnPass"><span class="ab-ic"><i data-icon="checkmark-circle-02"></i></span><span class="ab-txt">Keep it</span></button>
+        <button class="act-btn ab-yellow hidden" id="btnEndTurn"><span class="ab-ic"><i data-icon="checkmark-circle-02"></i></span><span class="ab-txt">End turn</span></button>
+        <button class="act-btn ab-blue hidden" id="btnDraw"><span class="ab-ic"><i data-icon="cards-01"></i></span><span class="ab-txt">Draw</span></button>
+        <button class="uno-btn" id="btnUno" disabled title="Call UNO (U)"><img src="img/uno-logo.svg" alt="UNO"><b class="dos-txt">DOS!</b><span class="uno-bang">!</span></button>
+      </div>
+
+      <div class="emotes hidden" id="emotes">
+        <button data-e="thumbs-up" title="Nice"><i data-icon="thumbs-up"></i></button><button data-e="laughing" title="Haha"><i data-icon="laughing"></i></button><button data-e="confused" title="Huh?"><i data-icon="confused"></i></button><button data-e="angry" title="Grr"><i data-icon="angry"></i></button><button data-e="party" title="Party"><i data-icon="party"></i></button><button data-e="sad-01" title="Oops"><i data-icon="sad-01"></i></button>
+      </div>
+
+      <aside class="side-panel" id="logPanel"><h3>Game log <button class="btn tiny ghost" data-close title="Close"><i data-icon="cancel-01"></i></button></h3><div class="log" id="logList"></div></aside>
+      <aside class="side-panel" id="chatPanel"><h3>Chat <button class="btn tiny ghost" data-close title="Close"><i data-icon="cancel-01"></i></button></h3><div class="chat-log" id="gameChat"></div><form class="chat-form" id="gameChatForm"><input placeholder="Message…" maxlength="200"><button class="btn">Send</button></form></aside>
+
+      <div class="curtain hidden" id="curtain">
+        <div class="curtain-card">
+          <div class="curtain-av" id="curtainAv"></div>
+          <h2>Pass the device to <span id="curtainName"></span></h2>
+          <p>No peeking! Tap below when you're ready.</p>
+          <button class="btn big primary" id="curtainGo">I'm ready - show my cards</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- MODALS -->
+    <div class="modal hidden" id="modal"><div class="modal-card" id="modalCard"></div></div>
+    <div class="toasts" id="toasts"></div>
+  </div>
+
+  <script src="vendor/gsap.min.js"></script>
+  <script src="js/shared/engine.js"></script>
+  <script src="js/shared/bots.js"></script>
+  <script src="js/shared/controller.js"></script>
+  <script src="js/client/icons.js"></script>
+  <script src="js/client/cards.js"></script>
+  <script src="js/client/sound.js"></script>
+  <script src="js/client/rules.js"></script>
+  <script src="js/client/demo.js"></script>
+  <script src="js/client/demos.js"></script>
+  <script src="js/client/table.js"></script>
+  <script src="js/client/net.js"></script>
+  <script src="js/client/app.js"></script>
+</body>
+</html>

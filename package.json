@@ -1,0 +1,17 @@
+{
+  "name": "uno-arena",
+  "version": "1.0.0",
+  "description": "3D UNO card games: Classic, Flip, No Mercy, All Wild, Attack, Liar's, Dare and DOS - vs CPU, pass & play, and online multiplayer",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test/simulate.js",
+    "postinstall": "node scripts/copy-vendor.js"
+  },
+  "engines": { "node": ">=12" },
+  "license": "MIT",
+  "dependencies": {
+    "gsap": "^3.12.5",
+    "ws": "^8.17.0"
+  }
+}

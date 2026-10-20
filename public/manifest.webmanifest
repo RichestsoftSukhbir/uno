@@ -1,0 +1,11 @@
+{
+  "name": "UNO Arena",
+  "short_name": "UNO Arena",
+  "description": "3D UNO: Classic, Flip, No Mercy, All Wild, Attack, Liar's, Dare and DOS.",
+  "start_url": "./",
+  "display": "fullscreen",
+  "orientation": "any",
+  "background_color": "#07130e",
+  "theme_color": "#0b3d2c",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}
