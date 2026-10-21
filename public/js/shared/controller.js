@@ -71,7 +71,10 @@
   P.animTime = function (events) {
     var ms = 0;
     (events || []).forEach(function (e) {
-      if (e.t === 'deal') ms += 1200 + e.order.length * 70;
+      if (e.t === 'deal') ms += (e.more ? 300 : 1200) + e.order.length * (e.more ? 40 : 70);
+      else if (e.t === 'pickup' || e.t === 'capture' || e.t === 'trickWon' || e.t === 'trickOut') ms += 600;
+      else if (e.t === 'bluffCall' || e.t === 'showdown' || e.t === 'sidecompare') ms += 1200;
+      else if (e.t === 'bluffPlay' || e.t === 'bet' || e.t === 'pick' || e.t === 'pairs' || e.t === 'build' || e.t === 'throw') ms += 450;
       else if (e.t === 'draw') ms += 350 + Math.min(e.n, 12) * 110;
       else if (e.t === 'flip') ms += 1300;
       else if (e.t === 'swap' || e.t === 'rotate') ms += 1000;
@@ -114,6 +117,12 @@
 
     var actor = g.actor();
     if (actor == null) return;
+    // automatic steps (e.g. sweeping a finished trick off the table) run by themselves after a pause
+    var auto = g.autoNext && g.autoNext();
+    if (auto) {
+      this.later(function () { if (g.actor() === actor) self.act(actor, auto); }, anim + 1300 * this.speed);
+      return;
+    }
     if (this.isBot(actor)) {
       var base = (this.opts.botDelay || 950) * this.speed;
       var think = base * (0.75 + Math.random() * 0.6);
@@ -129,6 +138,8 @@
         if (g.actor() === actor) {
           if (self.opts.onTimeout) self.opts.onTimeout(actor);
           self.botMove(actor, true);
+          // some moves keep the turn (a drawn card, picking a colour, looking at your cards) - finish it
+          for (var k = 0; k < 4 && g.actor() === actor && !g.gameOver && g.phase !== 'roundOver' && !(g.autoNext && g.autoNext()); k++) self.botMove(actor, true);
         }
       }, ms + anim);
     }

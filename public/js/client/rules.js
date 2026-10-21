@@ -178,6 +178,162 @@
     scoring: 'The winner scores cards left in other hands: numbers face value, Wild DOS 20, Wild # 40. First to 200.'
   };
 
+  /* ================= Desi Patti ================= */
+  function sc(s, r) { return { s: s, r: r }; }
+
+  R.bhabhi = {
+    intro: 'The great Indian "get rid of your cards" game (also called Get Away). Follow suit, dodge the pick-ups - the last player still holding cards is the <b>Bhabhi</b>!',
+    deck: 'One standard 52-card deck, Aces high. All cards are dealt out (some players may get one more card).',
+    setup: ['Shuffle and deal every card.', 'The player holding the <b>Ace of Spades</b> starts by leading it.'],
+    turn: [
+      'Going round the table, everyone plays one card to the trick and <b>must follow the suit led</b> if they can.',
+      'If everyone follows suit, the trick goes out of play and the player of the highest card leads next.',
+      'If someone can\'t follow suit, they play any other card - a <b>thulla</b>. The trick stops at once and the player who played the <b>highest card of the led suit picks up the whole trick</b> into their hand, then leads.',
+      'Run out of cards and you are <b>safe</b>. The last player left with cards is the Bhabhi.'
+    ],
+    cardsTitle: 'Key cards',
+    cards: [
+      [sc('S', 'A'), 'Ace of Spades', 'Whoever holds it opens the game with it.'],
+      [sc('H', 'K'), 'High cards', 'Dangerous: the highest card of the led suit picks up when someone throws a thulla.'],
+      [sc('C', '2'), 'Low cards', 'Safe to follow with - you rarely end up as the one picking up.']
+    ],
+    extra: ['Tip: when you can\'t follow suit, throw your biggest, most dangerous card as the thulla.'],
+    scoring: 'Each round everyone except the Bhabhi scores 1 point. With several rounds, the most points wins.'
+  };
+
+  R.bluff = {
+    intro: 'Known as Bluff, Cheat or "Mai Bluff". Get rid of all your cards by placing them face-down and announcing what they are - truthfully or not.',
+    deck: 'One 52-card deck (or two decks for big tables). All cards are dealt.',
+    setup: ['Deal all cards. The player after the dealer starts the first pile.'],
+    turn: [
+      'Start a pile: put <b>1-4 cards face-down</b> and claim a rank, e.g. "three Kings".',
+      'Each next player either adds 1-4 cards claiming the <b>same rank</b>, <b>passes</b>, or calls <b>Bluff!</b> on the previous player\'s cards.',
+      'Bluff called: the last play is turned over. If any card isn\'t the claimed rank, the bluffer takes the whole pile. If it was all true, the caller takes it. The player who did not pick up starts the next pile.',
+      'If everyone passes in a row, the pile is cleared away and the last player to play starts a new pile.',
+      'Play your last card and survive the next player\'s turn without being caught - you win!'
+    ],
+    cardsTitle: 'Tips',
+    cards: [
+      [sc('H', 'K'), 'Hold your sets', 'Claiming a rank you really hold makes your bluffs later much safer.'],
+      [sc('S', 'Q'), 'Count the cards', 'There are only four of each rank - if more are claimed, someone is lying!'],
+      ['back', 'Face-down pile', 'Only the last play is checked when someone calls Bluff.']
+    ],
+    extra: ['How to play here: tap 1-4 cards to select them, then press Play. Starting a pile asks you which rank to claim.'],
+    scoring: 'The winner of each round scores 1 point.'
+  };
+
+  R.seep = {
+    intro: 'Seep (Sweep / Sweeep) is the classic North-Indian fishing game for 2 players or 4 players in two teams. Capture cards by value, build "houses", and sweep the floor clean for a big bonus.',
+    deck: 'One 52-card deck. Values: Ace = 1, number cards their number, Jack = 11, Queen = 12, King = 13.',
+    setup: [
+      'The player after the dealer gets 4 cards and must <b>bid</b> a house value from 9 to 13 that they hold (no card of 9+ means a redeal).',
+      'Four cards are dealt face-up to the floor. The bidder then builds a house of the bid value, captures with it, or throws that card.',
+      'The rest is dealt so everyone holds 12 cards (2 players: the second half is dealt once hands run out).'
+    ],
+    turn: [
+      '<b>Capture</b>: play a card and take every floor card (and house) whose values add up to it in groups - e.g. a 9 takes 4+5 and 2+7.',
+      '<b>Build a house</b>: play a card onto floor cards to make 9-13. You must hold another card of that value to capture it later.',
+      '<b>Raise</b> an unbroken house to a higher value, or make it <b>pakka</b> (cement it) by adding a card of the same value.',
+      '<b>Throw</b>: put a card loose on the floor - not allowed while you own a house on the floor.',
+      '<b>Seep</b>: clear the whole floor with a capture for a 50-point bonus (not on the very last move).',
+      'When all cards are played, whoever captured last takes what is left on the floor.'
+    ],
+    cardsTitle: 'Point cards (100 in total)',
+    cards: [
+      [sc('S', 'K'), 'Spades', 'Every spade is worth its value: A♠ = 1 … K♠ = 13 (91 points in all).'],
+      [sc('H', 'A'), 'Other Aces', 'A♥, A♦ and A♣ are worth 1 point each.'],
+      [sc('D', '10'), 'Ten of Diamonds', 'Worth 6 points - the famous "dus".']
+    ],
+    extra: ['How to play here: tap a card and choose what it should do (capture, build, raise, cement or throw).'],
+    scoring: 'Each side scores its captured point cards plus 50 per seep. Over several rounds, the highest total wins.'
+  };
+
+  R.sevens = {
+    intro: 'Satte Pe Satta (Sevens / Fan-Tan): build the four suits outwards from the sevens. The first player to empty their hand wins.',
+    deck: 'One 52-card deck. Ace is low (A-2-3 … J-Q-K).',
+    setup: ['Deal all cards. Whoever holds the <b>7 of Hearts</b> plays it first.'],
+    turn: [
+      'On your turn play one card: a <b>7</b> starts a new suit row, or a card <b>next in sequence</b> to a row already on the table (6 or 8 of that suit, then 5 or 9, and so on).',
+      'You must play if you can. If no card fits, you pass.',
+      'The rows grow down to the Ace and up to the King.'
+    ],
+    cardsTitle: 'Key cards',
+    cards: [
+      [sc('H', '7'), '7 of Hearts', 'Opens the game.'],
+      [sc('S', '7'), 'Other sevens', 'Each one opens its suit\'s row.'],
+      [sc('C', 'K'), 'Aces and Kings', 'The ends of each row - hold them back to block opponents.']
+    ],
+    extra: ['Tip: hold on to 7s and cards next to them when other players are waiting on that suit.'],
+    scoring: 'The winner scores the number of cards left in everyone else\'s hands.'
+  };
+
+  R.gadha = {
+    intro: 'Gadha Chor (the Indian Old Maid): pull cards from your neighbour, throw away pairs, and don\'t get stuck with the odd card - or you\'re the <b>Gadha</b> (donkey)!',
+    deck: 'One 52-card deck with <b>one card secretly removed</b>. Its partner can never be paired - that\'s the Gadha card.',
+    setup: ['Deal all remaining cards.', 'Everyone throws away their pairs straight away.'],
+    turn: [
+      'A <b>pair</b> is two cards of the same rank <b>and the same colour</b> (e.g. 7♥ + 7♦, or K♠ + K♣).',
+      'On your turn pull one card, unseen, from the next player\'s hand. If it makes a pair, throw the pair away.',
+      'Run out of cards and you are safe. The last player holding a card is the Gadha.'
+    ],
+    cardsTitle: 'Pairs',
+    cards: [
+      [sc('H', '7'), '7♥ + 7♦', 'Same rank, both red: a pair.'],
+      [sc('S', 'K'), 'K♠ + K♣', 'Same rank, both black: a pair.'],
+      ['back', 'The hidden card', 'Revealed at the end of the round.']
+    ],
+    extra: ['How to play here: on your turn, tap any card in the glowing neighbour\'s hand to pull it.'],
+    scoring: 'Everyone except the Gadha scores 1 point per round.'
+  };
+
+  R.teenpatti = {
+    intro: 'Teen Patti ("three cards") - India\'s favourite betting game, played here with <b>points/chips only, never real money</b>. Play blind or look at your cards, keep betting, and win the pot with the best three-card hand.',
+    deck: 'One 52-card deck. Each player gets 3 cards. Everyone starts with the same chip stack.',
+    setup: ['Every player puts the <b>boot</b> into the pot.', 'Three cards each are dealt face-down. Everyone starts <b>blind</b> (without looking).'],
+    turn: [
+      '<b>Blind</b> players bet the current stake (chaal) or double it (raise). Look at your cards any time with <b>See</b>.',
+      '<b>Seen</b> players must bet twice the stake (or four times to raise).',
+      '<b>Pack</b> to fold and drop out of the round.',
+      '<b>Show</b>: when only two players are left, pay a chaal to compare hands - best hand takes the pot.',
+      '<b>Side show</b>: a seen player can ask the previous seen player to compare privately; if they accept, the weaker hand packs.',
+      'When the pot reaches the pot limit, everyone left must show.'
+    ],
+    cardsTitle: 'Hand rankings (best first)',
+    cards: [
+      [sc('S', 'A'), 'Trail (Trio)', 'Three of a kind - A-A-A is the best hand.'],
+      [sc('H', 'K'), 'Pure Sequence', 'Three in a row of one suit. A-K-Q is highest, then A-2-3.'],
+      [sc('D', 'Q'), 'Sequence (Run)', 'Three in a row, mixed suits.'],
+      [sc('C', 'J'), 'Colour', 'Three of the same suit, not in sequence.'],
+      [sc('H', '10'), 'Pair', 'Two of the same rank.'],
+      [sc('S', '9'), 'High Card', 'None of the above - highest card wins.']
+    ],
+    extra: ['This is a points-only game for fun. No real money is involved.'],
+    scoring: 'Chips won stay with you between rounds. After the last round - or when only one player has chips - the biggest stack wins.'
+  };
+
+  R.courtpiece = {
+    intro: 'Court Piece (Rang / Coat Piece) is the beloved partnership trick-taking game. Two teams, one trump suit, thirteen tricks.',
+    deck: 'One 52-card deck, Aces high. Exactly 4 players: you and the player opposite you are partners.',
+    setup: [
+      'The player after the dealer gets 5 cards and chooses the <b>trump suit (rang)</b>.',
+      'Then everyone is dealt up to 13 cards. The trump caller leads the first trick.'
+    ],
+    turn: [
+      'Follow the suit that was led if you can; otherwise play any card - including a trump to <b>cut</b>.',
+      'The highest trump wins the trick, or the highest card of the led suit if no trump was played.',
+      'The trick winner leads the next one.',
+      'The first team to win <b>7 tricks</b> wins the hand. Winning the first 7 without the other team taking any is a <b>Kot</b>!'
+    ],
+    cardsTitle: 'Key ideas',
+    cards: [
+      [sc('S', 'A'), 'Aces', 'The strongest card of each suit - unless it gets cut by a trump.'],
+      [sc('H', '2'), 'Trumps', 'Even a 2 of trumps beats an Ace of another suit.'],
+      [sc('D', 'J'), 'Partners', 'If your partner is already winning the trick, throw a low card.']
+    ],
+    extra: [],
+    scoring: 'Winning a hand = 1 point, a Kot = 3 points. After the set number of rounds the team with more points wins.'
+  };
+
   var GENERAL = [
     ['Playing a card', 'Click / tap a glowing card, or drag it up and throw it onto the pile.'],
     ['Drawing', 'Click the draw pile (or the Draw button). In UNO Attack! click the launcher.'],
@@ -186,6 +342,8 @@
     ['Pass & Play', 'One device for everybody: hand it over when the screen says so - your cards stay hidden in between.'],
     ['Online', 'Create a room, share the 5-letter code (or link) with friends. Empty seats can be filled with CPU players. If someone disconnects a CPU plays for them until they come back.'],
     ['Liar\'s', 'Tap a card with circles (a Liar card) to play it face-down - then tap "Tell the truth" or pick a colour and a card to claim.'],
+    ['Big hands', 'With lots of cards your hand squeezes into a stack. Hover over it (or slide a finger along it) and the cards around your pointer fan open so you can read them.'],
+    ['Desi Patti', 'Switch between UNO and the Indian card-game hall with the UNO / Desi Patti switch at the top of the home page, and choose the Indian or Pro look.'],
     ['Keyboard', 'D = draw, U = UNO, C = catch, P = pass/keep, 1-4 = choose colour, Esc = menu.']
   ];
 

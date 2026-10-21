@@ -323,7 +323,7 @@
     unoPenalty: { label: 'Penalty for missing UNO', type: 'number', min: 1, max: 6, step: 1 },
     liarPenalty: { label: 'Penalty for a lie / wrong challenge', type: 'number', min: 1, max: 6, step: 1 },
     mercyLimit: { label: 'Mercy rule: knocked out at', type: 'number', min: 15, max: 60, step: 1 },
-    turnTimer: { label: 'Turn timer (online, seconds, 0 = off)', type: 'number', min: 0, max: 120, step: 5 },
+    turnTimer: { label: 'Turn timer (seconds, 0 = off)', type: 'number', min: 0, max: 120, step: 5 },
     dareDeck: { label: 'Dare deck', type: 'select', choices: [['family', 'Family (all ages)'], ['adult', 'Adults only (18+)']], adultGate: true }
   };
 
@@ -1833,7 +1833,18 @@
   };
 
   /* ================================================================== */
+  // other card-game families (e.g. the Desi games in patti.js) register themselves here
+  var FACTORIES = {};
+  function register(defs) {
+    Object.keys(defs.variants || {}).forEach(function (id) {
+      VARIANTS[id] = defs.variants[id];
+      FACTORIES[id] = defs.create;
+    });
+    Object.keys(defs.options || {}).forEach(function (k) { OPTION_DEFS[k] = defs.options[k]; });
+  }
+
   function createGame(variantId, opts, seats, rnd) {
+    if (FACTORIES[variantId]) return FACTORIES[variantId](variantId, opts, seats, rnd);
     if (variantId === 'dos') return new DosGame(opts, seats, rnd);
     return new UnoGame(variantId, opts, seats, rnd);
   }
@@ -1852,6 +1863,7 @@
     isNum: isNum,
     resolveOptions: resolveOptions,
     createGame: createGame,
+    register: register,
     UnoGame: UnoGame,
     DosGame: DosGame
   };

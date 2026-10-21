@@ -149,8 +149,14 @@
   T.project = function (x, y, z) { return this.projFn ? this.projFn(x, y, z || 0) : { x: 0, y: 0, k: 1 }; };
 
   T.isDos = function () { return this.view && this.view.engine === 'dos'; };
+  T.isPatti = function () { return this.view && this.view.engine === 'patti'; };
+  T.backKind = function () { return this.isPatti() ? 'patti' : (this.isDos() ? 'dos' : 'uno'); };
   T.pilePos = function (which) {
     var L = this.L;
+    if (this.isPatti()) {
+      if (which === 'deck') return this.view.deckCount ? { x: -L.pile * 3.2, y: L.pileY - 40 } : { x: 0, y: L.pileY };
+      return { x: L.pile * 2.6, y: L.pileY };
+    }
     if (this.isDos()) return which === 'deck' ? { x: -110, y: -215 } : { x: 110, y: -215 };
     return which === 'deck' ? { x: -L.pile, y: L.pileY } : { x: L.pile, y: L.pileY };
   };
@@ -207,7 +213,7 @@
   T.setFaces = function (rec, cv) {
     var v = this.view;
     var flip = v.variant === 'flip';
-    var back = this.isDos() ? 'dos' : 'uno';
+    var back = this.backKind();
     // a card's faces never change, so keep showing a side we have already seen
     if (cv.a) rec.knownA = cv.a;
     if (cv.b && cv.b !== 'back') rec.knownB = cv.b;
@@ -261,21 +267,23 @@
       });
     }
 
+    if (v.engine === 'patti') this.zoneTargets(v, t, faceUpRY, faceDownRY);
+
     // hands
     v.players.forEach(function (p) {
       var cards = p.hand;
       var k = cards.length;
       if (p.id === v.me) {
         var mine = self.sortHand(cards);
-        var maxW = self.handMaxW || L.handW;
-        var sp = Math.min(CW * 0.78 * L.hs, k > 1 ? maxW / (k - 1) : 0);
+        var xs = self.handXs(k);
         var fanStep = Math.min(3.2, 34 / Math.max(1, k));
         mine.forEach(function (cv, i) {
           var off = i - (k - 1) / 2;
           var sel = self.selected.indexOf(cv.id) >= 0;
+          var lift = self.handFocus != null && Math.round(self.handFocus) === i ? -30 : 0;
           t[cv.id] = {
-            cv: cv, loc: 'mine', x: off * sp, y: L.handY + Math.abs(off) * Math.abs(off) * 0.9 * (fanStep / 3), z: L.handZ,
-            rx: -th, rz: 0, fan: off * fanStep, iz: i * 0.35, ry: heldRY, iy: sel ? -38 : 0, order: i, mine: true, sc: L.hs
+            cv: cv, loc: 'mine', x: xs[i], y: L.handY + Math.abs(off) * Math.abs(off) * 0.9 * (fanStep / 3), z: L.handZ,
+            rx: -th, rz: 0, fan: self.handFocus != null ? off * fanStep * 0.35 : off * fanStep, iz: i * 0.35, ry: heldRY, iy: (sel ? -38 : 0) + lift, order: i, mine: true, sc: L.hs
           };
         });
         return;
@@ -299,9 +307,205 @@
     return t;
   };
 
+  /* where each desi table area sits, and every card in it */
+  T.seatPoint = function (pid) {
+    if (pid === this.view.me) return { x: 0, y: this.L.handY };
+    return this.seatPos(pid);
+  };
+  T.zonePos = function (z) {
+    var L = this.L, cy = L.pileY;
+    if (z.pos === 'side') return { x: L.pile * 2.6, y: cy };
+    if (z.pos === 'left') return { x: -L.pile * 2.6, y: cy };
+    return { x: 0, y: cy };
+  };
+  T.floorSpot = function (i, n) {
+    var tall = this.L.tilt < 40;
+    var per = tall ? 4 : 7, gapX = tall ? 92 : 118, gapY = tall ? 130 : 150;
+    var rows = Math.ceil(n / per) || 1;
+    var row = Math.floor(i / per), col = i % per, inRow = Math.min(per, n - row * per);
+    return { x: (col - (inRow - 1) / 2) * gapX, y: this.L.pileY + (row - (rows - 1) / 2) * gapY };
+  };
+  T.wonPos = function (p) {
+    var L = this.L, tall = L.tilt < 40, side = p === 0 ? -1 : 1;
+    return { x: side * (tall ? 200 : L.rx * 0.62), y: L.pileY + (tall ? 330 : 190) };
+  };
+  T.zoneTargets = function (v, t, up, down) {
+    var self = this, L = this.L, cy = L.pileY;
+    var tall = L.tilt < 40;
+    (v.zones || []).forEach(function (z) {
+      var loc = 'zone:' + z.id;
+      if (z.type === 'trick') {
+        z.cards.forEach(function (tc, i) {
+          var sp = self.seatPoint(tc.p);
+          var x = sp.x * (tall ? 0.28 : 0.3), y = cy + (sp.y - cy) * (tall ? 0.22 : 0.3);
+          var yaw = tc.p === v.me ? 0 : self.seatAngle(tc.p) - 90;
+          t[tc.cv.id] = { cv: tc.cv, loc: loc, x: x + (hash(tc.cv.id) - 0.5) * 10, y: y, z: 3 + i * 1.2, rx: 0, rz: yaw + (hash(tc.cv.id + 'r') - 0.5) * 18, fan: 0, iz: 0, ry: up, iy: 0 };
+        });
+      } else if (z.type === 'pile') {
+        var P = self.zonePos(z);
+        var hl = z.highlight || [];
+        z.cards.forEach(function (cv, i) {
+          var isUp = z.faceUp || cv.up;
+          var lift = hl.indexOf(cv.id) >= 0 && hl.length < z.cards.length ? -10 : 0;
+          t[cv.id] = { cv: cv, loc: loc, x: P.x + (hash(cv.id) - 0.5) * 26, y: P.y + (hash(cv.id + 'y') - 0.5) * 18 + lift, z: 2 + i * 0.9,
+            rx: 0, rz: (hash(cv.id + 'r') - 0.5) * 50, fan: 0, iz: 0, ry: isUp ? up : down, iy: 0, sc: z.pos === 'center' ? 1 : 0.85 };
+        });
+      } else if (z.type === 'grid') {
+        var order = ['S', 'H', 'D', 'C'];
+        var sc = tall ? 0.5 : 0.62, colW = tall ? 40 : 58, rowH = tall ? 82 : 100;
+        z.cards.forEach(function (cv) {
+          var f = cv.a;
+          if (!f) return;
+          var r = f.r === 'A' ? 1 : f.r === 'J' ? 11 : f.r === 'Q' ? 12 : f.r === 'K' ? 13 : +f.r;
+          var row = order.indexOf(f.s);
+          var dist = Math.abs(r - 7);
+          t[cv.id] = { cv: cv, loc: loc, x: (r - 7) * colW, y: cy + (row - 1.5) * rowH, z: 2 + (6 - dist) * 0.6, rx: 0, rz: 0, fan: 0, iz: 0, ry: up, iy: 0, sc: sc };
+        });
+      } else if (z.type === 'floor') {
+        z.items.forEach(function (it, i) {
+          var spot = self.floorSpot(i, z.items.length);
+          var cards = it.kind === 'card' ? [it.cv] : it.cards;
+          cards.forEach(function (cv, k) {
+            t[cv.id] = { cv: cv, loc: loc, x: spot.x + k * 7, y: spot.y - k * 9, z: 2 + k * 1.2, rx: 0, rz: it.kind === 'house' ? (k - cards.length / 2) * 4 : (hash(cv.id) - 0.5) * 8, fan: 0, iz: 0, ry: up, iy: 0, sc: tall ? 0.8 : 0.9 };
+          });
+        });
+      } else if (z.type === 'won') {
+        var W = self.wonPos(z.p);
+        var side = z.p === 0 ? -1 : 1;
+        z.cards.forEach(function (cv, i) {
+          t[cv.id] = { cv: cv, loc: loc, x: W.x + i * 2, y: W.y - i * 2, z: 2 + i, rx: 0, rz: side * 12 + i * 3, fan: 0, iz: 0, ry: down, iy: 0, sc: 0.7 };
+        });
+      }
+    });
+  };
+  T.zoneLabelPos = function (z) {
+    var L = this.L, cy = L.pileY, tall = L.tilt < 40;
+    if (z.type === 'pile') { var P = this.zonePos(z); return { x: P.x, y: P.y + (z.pos === 'center' ? 120 : 105) }; }
+    if (z.type === 'trick') {
+      // under my own trick card, so it never covers the cards being played
+      var mp = this.seatPoint(this.view.me == null ? 0 : this.view.me);
+      return { x: 0, y: cy + (mp.y - cy) * (tall ? 0.22 : 0.3) + CH * 0.5 + 34 };
+    }
+    if (z.type === 'floor') return { x: 0, y: cy - (tall ? 210 : 190) };
+    if (z.type === 'won') { var W = this.wonPos(z.p); return { x: W.x, y: W.y + 80 }; }
+    if (z.type === 'pot') return { x: 0, y: cy + 90 };
+    return { x: 0, y: cy };
+  };
+  T.renderZones = function (v) {
+    var self = this;
+    this.zoneEls = this.zoneEls || {};
+    var keep = {};
+    var zones = v.engine === 'patti' ? v.zones || [] : [];
+    zones.forEach(function (z) {
+      if (z.type === 'pot') {
+        keep.pot = true;
+        var pe = self.zoneEls.pot || (self.zoneEls.pot = el('div', 'pot-stack', self.world, '<i></i><i></i><i></i><i></i><i></i><b></b><small></small>'));
+        pe.querySelector('b').textContent = z.amount;
+        pe.querySelector('small').textContent = z.sub || '';
+        gsap.set(pe, { x: 0, y: self.L.pileY, z: 55, rotationX: -self.L.tilt * 0.6 });
+        var chips = Math.min(5, Math.ceil(z.amount / 30));
+        Array.prototype.forEach.call(pe.querySelectorAll('i'), function (c, i) { c.style.display = i < chips ? 'block' : 'none'; });
+        return;
+      }
+      if (z.type === 'floor') {
+        // value badges on houses
+        z.items.forEach(function (it, i) {
+          if (it.kind !== 'house') return;
+          var hk = 'house:' + i;
+          keep[hk] = true;
+          var he = self.zoneEls[hk] || (self.zoneEls[hk] = el('div', 'house-badge', self.world));
+          he.textContent = it.value + (it.pakka ? ' ✦' : '');
+          he.classList.toggle('pakka', !!it.pakka);
+          var spot = self.floorSpot(i, z.items.length);
+          gsap.set(he, { x: spot.x + 30, y: spot.y - 70, z: 30, rotationX: -self.L.tilt });
+        });
+      }
+      if (!z.label) return;
+      var key = 'lbl:' + z.id;
+      keep[key] = true;
+      var le = self.zoneEls[key] || (self.zoneEls[key] = el('div', 'zone-label', self.world));
+      le.textContent = z.label;
+      var lp = self.zoneLabelPos(z);
+      gsap.set(le, { x: lp.x, y: lp.y, z: 1 });
+    });
+    Object.keys(this.zoneEls).forEach(function (k) { if (!keep[k]) { self.zoneEls[k].remove(); delete self.zoneEls[k]; } });
+  };
+  T.potScreen = function () { return this.project(0, this.L.pileY, 20); };
+  T.chipsFly = function (from, to, n, cls) {
+    for (var i = 0; i < n; i++) {
+      var c = el('div', 'fly-chip ' + (cls || ''), this.fx);
+      gsap.set(c, { left: from.x, top: from.y, xPercent: -50, yPercent: -50, scale: 0.8 });
+      (function (chip, d) {
+        gsap.to(chip, { left: to.x + (Math.random() - 0.5) * 30, top: to.y + (Math.random() - 0.5) * 16, scale: 1, duration: 0.55, delay: d, ease: 'power2.inOut',
+          onComplete: function () { gsap.to(chip, { opacity: 0, duration: 0.25, delay: 0.2, onComplete: function () { chip.remove(); } }); } });
+      })(c, i * 0.06);
+    }
+    S.play('chip');
+  };
+  T.refreshFaces = function () {
+    var self = this;
+    Object.keys(this.cards).forEach(function (id) { var rec = self.cards[id]; rec.ka = rec.kb = null; if (rec.cv) self.setFaces(rec, rec.cv); });
+    if (this.view) this.renderDeck(this.view);
+  };
+
+  // x positions of my cards. Many cards squeeze into a tight stack; around the pointer
+  // (handFocus) the gaps open up so every card can be read.
+  T.handXs = function (k) {
+    var L = this.L;
+    var maxW = this.handMaxW || L.handW;
+    var full = CW * 0.78 * L.hs;
+    var sp = Math.min(full, k > 1 ? maxW / (k - 1) : 0);
+    var xs = [];
+    if (this.handFocus == null || sp >= full * 0.95 || k < 2) {
+      for (var i = 0; i < k; i++) xs.push((i - (k - 1) / 2) * sp);
+      return xs;
+    }
+    var f = this.handFocus;
+    var open = CW * 0.72 * L.hs;
+    var gaps = [], total = 0;
+    for (var g = 0; g < k - 1; g++) {
+      var d = Math.abs(g + 0.5 - f);
+      var w = Math.max(0, 1 - d / 2.6);
+      gaps.push(sp + (open - sp) * w * w * (3 - 2 * w));
+    }
+    // keep the hand inside its width: squeeze the far gaps to pay for the open ones
+    gaps.forEach(function (x) { total += x; });
+    var budget = Math.max(maxW, total * 0.6);
+    if (total > budget) {
+      var extra = total - budget;
+      var far = 0;
+      gaps.forEach(function (x, gi) { if (Math.abs(gi + 0.5 - f) > 2.6) far += x; });
+      gaps = gaps.map(function (x, gi) { return Math.abs(gi + 0.5 - f) > 2.6 && far > 0 ? Math.max(sp * 0.35, x - extra * x / far) : x; });
+    }
+    var pos = 0;
+    xs.push(0);
+    gaps.forEach(function (x) { pos += x; xs.push(pos); });
+    var mid = (xs[0] + xs[xs.length - 1]) / 2;
+    return xs.map(function (x) { return x - mid; });
+  };
+  T.setHandFocus = function (f) {
+    if (this.handFocus === f) return;
+    this.handFocus = f;
+    if (!this.view) return;
+    var targets = this.computeTargets(this.view);
+    var self = this;
+    Object.keys(targets).forEach(function (id) {
+      var rec = self.cards[id];
+      if (rec && rec.loc === 'mine') self.place(rec, targets[id], null, 0, 0.22);
+    });
+  };
+
   T.sortHand = function (cards) {
     if (!this.opts.sortHand || !this.opts.sortHand()) return cards;
     var v = this.view;
+    if (v.engine === 'patti') {
+      // suits alternate colour (♠ ♥ ♣ ♦), ranks low to high with the Ace on top
+      var SO = 'SHCD', RO = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+      return cards.slice().sort(function (a, b) {
+        if (!a.a || !b.a) return a.a ? -1 : b.a ? 1 : 0;
+        return (SO.indexOf(a.a.s) - SO.indexOf(b.a.s)) || (RO.indexOf(a.a.r) - RO.indexOf(b.a.r));
+      });
+    }
     var order = ['red', 'yellow', 'green', 'blue', 'pink', 'teal', 'orange', 'purple', 'wild'];
     var flip = v.variant === 'flip';
     function f(cv) { return (flip && v.side === 'dark' ? cv.b : cv.a) || { c: 'wild', v: 'z' }; }
@@ -333,7 +537,7 @@
     while (this.ghosts.length > want) this.ghosts.pop().remove();
     var A = this.activeIsA();
     var flip = v.variant === 'flip';
-    var back = this.isDos() ? 'dos' : 'uno';
+    var back = this.backKind();
     var self = this;
     this.ghosts.forEach(function (g, i) {
       var r = hash('g' + i);
@@ -357,6 +561,7 @@
     this.deckTopZ = this.ghosts.length * 1.1 + 1;
     if (!this.deckCount) this.deckCount = el('div', 'pile-count', this.world);
     this.deckCount.textContent = v.deckCount;
+    this.deckCount.classList.toggle('hidden', !!this.isPatti() && !v.deckCount);
     gsap.set(this.deckCount, { x: K.x - 30, y: K.y + CH / 2 + 26, z: 1 });
   };
 
@@ -383,8 +588,13 @@
       if (s.dataset.av !== avKey) { s.dataset.av = avKey; s.querySelector('.seat-av').innerHTML = window.UNOIcons.avatar(p.avatar || (p.kind === 'bot' ? 'robot-01' : 'user')); }
       s.querySelector('.seat-name').textContent = p.name;
       var meta = [];
-      if (p.kind === 'bot') meta.push('CPU ' + (p.level || ''));
-      if (v.options && v.options.scoreMode === 'points') meta.push(p.score + ' pts');
+      if (v.engine === 'patti') {
+        if (v.chips) meta.push('◉ ' + p.score);
+        else if (v.rounds > 1 || v.teams) meta.push(p.score + ' pts');
+        if (p.kind === 'bot' && !v.chips) meta.push('CPU');
+        if (v.teams) meta.push('Team ' + (p.id % 2 ? 'B' : 'A'));
+      } else if (p.kind === 'bot') meta.push('CPU ' + (p.level || ''));
+      if (v.engine !== 'patti' && v.options && v.options.scoreMode === 'points') meta.push(p.score + ' pts');
       if (p.offline) meta.push('offline');
       s.querySelector('.seat-meta').textContent = meta.join(' · ');
       s.querySelector('.seat-count').textContent = p.out ? 'OUT' : p.count;
@@ -394,7 +604,14 @@
       s.classList.toggle('pending', v.unoPending === p.id);
       s.classList.toggle('targetable', !!self.targetMode && !p.out);
       var badge = s.querySelector('.seat-badge');
-      badge.textContent = v.unoPending === p.id ? '!' : (p.count === (self.isDos() ? 2 : 1) && !p.out ? (self.isDos() ? 'DOS' : 'UNO') : '');
+      if (v.engine === 'patti') {
+        s.classList.remove('uno');
+        badge.textContent = p.tag || '';
+        s.dataset.tag = (p.tag || '').toLowerCase();
+        s.classList.toggle('team-b', !!v.teams && p.id % 2 === 1);
+        s.classList.toggle('team-a', !!v.teams && p.id % 2 === 0);
+        s.classList.toggle('out', !!p.out && p.tag !== 'SAFE' && p.tag !== 'WINNER');
+      } else badge.textContent = v.unoPending === p.id ? '!' : (p.count === (self.isDos() ? 2 : 1) && !p.out ? (self.isDos() ? 'DOS' : 'UNO') : '');
     });
     Object.keys(this.seats).forEach(function (id) { if (!present[id]) { self.seats[id].remove(); delete self.seats[id]; } });
 
@@ -410,7 +627,10 @@
   T.renderCenter = function (v) {
     var D = this.pilePos('discard');
     var K = this.pilePos('deck');
-    var dos = this.isDos();
+    var dos = this.isDos() || this.isPatti();
+    this.renderZones(v);
+    var logoText = this.isPatti() ? (Cards.desiTheme() === 'pro' ? 'PATTI' : 'पत्ती') : 'UNO';
+    if (this.logo.textContent !== logoText) this.logo.firstChild.textContent = logoText;
     // direction ring around the piles
     this.ring.classList.toggle('hidden', dos);
     gsap.set(this.ring, { x: 0, y: this.L.pileY, z: 0.3 });
@@ -428,7 +648,8 @@
     this.stackBadge.classList.toggle('show', !!v.drawStack);
     gsap.set(this.stackBadge, { x: D.x + 95, y: D.y - 70, z: 40, rotationX: -this.L.tilt });
     if (!this.discardCount) this.discardCount = el('div', 'pile-count', this.world);
-    this.discardCount.textContent = v.discardCount || '';
+    this.discardCount.textContent = this.isPatti() ? '' : (v.discardCount || '');
+    this.discardCount.classList.toggle('hidden', !!this.isPatti());
     gsap.set(this.discardCount, { x: D.x + 30, y: D.y + CH / 2 + 26, z: 1 });
     if (this.zoneHint) this.zoneHint.remove();
     if (dos && v.center) {
@@ -458,15 +679,23 @@
     var self = this;
     var c = rec.el;
     var drag = null;
-    c.addEventListener('pointerenter', function () {
+    c.addEventListener('pointerenter', function (e) {
       if (rec.loc !== 'mine' || drag) return;
-      gsap.to(rec.inner, { y: (rec.target ? rec.target.iy : 0) - 26, duration: 0.18, ease: 'power2.out' });
+      clearTimeout(self.focusTimer);
       c.classList.add('hover');
+      if (e.pointerType === 'mouse' && rec.target) self.setHandFocus(rec.target.order);
+      else gsap.to(rec.inner, { y: (rec.target ? rec.target.iy : 0) - 26, duration: 0.18, ease: 'power2.out' });
     });
     c.addEventListener('pointerleave', function () {
       if (rec.loc !== 'mine' || drag) return;
-      gsap.to(rec.inner, { y: rec.target ? rec.target.iy : 0, duration: 0.25, ease: 'power2.out' });
       c.classList.remove('hover');
+      clearTimeout(self.focusTimer);
+      self.focusTimer = setTimeout(function () { self.setHandFocus(null); }, 140);
+      if (rec.target) gsap.to(rec.inner, { y: rec.target.iy, duration: 0.25, ease: 'power2.out' });
+    });
+    // opponents' cards can be picked (Gadha Chor)
+    c.addEventListener('click', function () {
+      if (rec.loc && rec.loc.indexOf('hand') === 0 && self.opts.onOppCardClick) self.opts.onOppCardClick(rec.id);
     });
     c.addEventListener('pointerdown', function (e) {
       if (rec.loc !== 'mine') return;
@@ -478,6 +707,12 @@
     c.addEventListener('pointermove', function (e) {
       if (!drag) return;
       var dx = e.clientX - drag.x0, dy = e.clientY - drag.y0;
+      // sliding sideways along the hand opens it up under the finger instead of dragging
+      if (!drag.moved && (drag.scrub || (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.2))) {
+        drag.scrub = true;
+        self.scrubTo(e.clientX);
+        return;
+      }
       if (!drag.moved && Math.hypot(dx, dy) > 9) { drag.moved = true; c.classList.add('dragging'); S.play('flick'); }
       if (drag.moved) {
         var now = performance.now();
@@ -492,6 +727,7 @@
       drag = null;
       c.classList.remove('dragging');
       var dy = e.clientY - d.y0;
+      if (d.scrub) { clearTimeout(self.focusTimer); self.focusTimer = setTimeout(function () { self.setHandFocus(null); }, 1600); return; }
       if (!d.moved) {
         if (self.opts.onCardClick) self.opts.onCardClick(rec.id);
         return;
@@ -507,6 +743,19 @@
     c.addEventListener('pointerup', end);
     c.addEventListener('pointercancel', end);
   };
+  // focus the card of my hand nearest to a screen x position
+  T.scrubTo = function (clientX) {
+    var best = null, bd = 1e9;
+    var self = this;
+    Object.keys(this.cards).forEach(function (id) {
+      var rec = self.cards[id];
+      if (rec.loc !== 'mine' || !rec.target) return;
+      var r = rec.el.getBoundingClientRect();
+      var d = Math.abs((r.left + r.right) / 2 - clientX);
+      if (d < bd) { bd = d; best = rec.target.order; }
+    });
+    if (best != null) this.setHandFocus(best);
+  };
   T.bindDeck = function () {
     var self = this;
     function click() { if (self.opts.onDeckClick) self.opts.onDeckClick(); }
@@ -514,11 +763,12 @@
     this.launcher.addEventListener('click', click);
   };
 
-  T.markCards = function (playable, myTurn, selected) {
+  T.markCards = function (playable, myTurn, selected, pickFrom) {
     var self = this;
     this.selected = selected || [];
     Object.keys(this.cards).forEach(function (id) {
       var rec = self.cards[id];
+      rec.el.classList.toggle('pickable', pickFrom != null && rec.loc === 'hand' + pickFrom);
       if (rec.loc !== 'mine') { rec.el.classList.remove('playable', 'dim', 'selected'); return; }
       var p = playable.indexOf(id) >= 0;
       rec.el.classList.toggle('playable', p);
@@ -561,7 +811,7 @@
       var peak = Math.max(z0, tg.z) + arc;
       tl.to(rec.el, { z: peak, duration: dur * 0.42, ease: 'power2.out' }, at);
       tl.to(rec.el, { z: tg.z, duration: dur * 0.58, ease: 'power2.in' }, at + dur * 0.42);
-      if (tg.loc === 'discard' || (tg.loc && tg.loc.indexOf('center') === 0)) {
+      if (tg.loc === 'discard' || (tg.loc && (tg.loc.indexOf('center') === 0 || tg.loc.indexOf('zone') === 0))) {
         // settle bounce + a little slide on landing
         tl.to(rec.el, { z: tg.z + 4, duration: 0.07, ease: 'power1.out' }, at + dur);
         tl.to(rec.el, { z: tg.z, duration: 0.16, ease: 'bounce.out' }, at + dur + 0.07);
@@ -593,7 +843,7 @@
 
     // deal: gather everything back to the deck first, then shuffle
     var t0 = 0;
-    if (types.deal) {
+    if (types.deal && !types.deal.more) {
       var old = Object.keys(this.cards);
       old.forEach(function (id) {
         var rec = self.cards[id];
@@ -661,7 +911,7 @@
         return;
       }
       if (locChanged) {
-        var toPile = tg.loc === 'discard' || tg.loc.indexOf('center') === 0;
+        var toPile = tg.loc === 'discard' || tg.loc.indexOf('center') === 0 || tg.loc.indexOf('zone') === 0;
         var between = prevLoc && prevLoc.indexOf('hand') === 0 || prevLoc === 'mine';
         var start = toPile ? t0 : t0 + 0.08;
         var dur = toPile ? 0.55 : (types.swap || types.rotate ? 0.85 : 0.6);
@@ -735,11 +985,19 @@
   };
   T.float = function (pid, text, cls, delay) {
     var self = this;
+    this.floatLanes = this.floatLanes || {};
     setTimeout(function () {
       var at = pid === 'pile' ? self.pileScreen() : self.seatScreen(pid);
+      // several effects on the same player (e.g. "+2" and "skipped") line up side by side instead of overlapping
+      var key = String(pid);
+      var lane = self.floatLanes[key] || (self.floatLanes[key] = []);
+      var slot = 0;
+      while (lane.indexOf(slot) >= 0) slot++;
+      lane.push(slot);
+      var dx = slot === 0 ? 0 : (slot % 2 ? 1 : -1) * Math.ceil(slot / 2) * 78;
       var f = el('div', 'float ' + (cls || ''), self.fx, text);
-      gsap.set(f, { left: at.x, top: at.y, xPercent: -50, yPercent: -50, scale: 0.3, opacity: 0 });
-      gsap.timeline({ onComplete: function () { f.remove(); } })
+      gsap.set(f, { left: at.x + dx, top: at.y - (slot ? 6 : 0), xPercent: -50, yPercent: -50, scale: 0.3, opacity: 0 });
+      gsap.timeline({ onComplete: function () { f.remove(); lane.splice(lane.indexOf(slot), 1); } })
         .to(f, { scale: 1.15, opacity: 1, duration: 0.25, ease: 'back.out(2.5)' })
         .to(f, { scale: 1, duration: 0.15 })
         .to(f, { y: -60, opacity: 0, duration: 0.7, ease: 'power1.in' }, '+=0.75');
@@ -806,6 +1064,7 @@
     if (n) { S.play('boom', 0.1); this.shake(n > 3 ? 12 : 6); } else S.play('launch');
   };
 
+  function rankWord(r) { return ({ A: 'Aces', K: 'Kings', Q: 'Queens', J: 'Jacks', '6': 'Sixes' })[r] || (r + 's'); }
   T.eventFx = function (events, view, prev, tl, t0) {
     var self = this;
     var at = t0 + 0.1;
@@ -861,6 +1120,69 @@
           tl.call(function () { S.play('win'); self.bubble(e.p, window.UNOIcons.svg('party') + ' DARE DONE!', 'uno'); }, null, 0); break;
         case 'match':
           tl.call(function () { if (e.bonus) { S.play('color'); self.float('pile', e.bonus === 'double' ? 'DOUBLE COLOR MATCH!' : 'COLOR MATCH!', 'claim'); } }, null, at + 0.4); break;
+        /* ---------- Desi games ---------- */
+        case 'thulla':
+          tl.call(function () { S.play('thulla'); S.say('Thulla!', 'hi'); self.bubble(e.p, 'THULLA!', 'caught'); self.shake(6); }, null, at); break;
+        case 'pickup':
+          tl.call(function () { S.play('penalty'); self.bubble(e.p, 'Picks up ' + e.ids.length + '!', 'challenge'); }, null, at); break;
+        case 'trickOut':
+          tl.call(function () { S.play('swap'); self.float('pile', 'OUT', 'claim'); }, null, at); break;
+        case 'escape':
+          tl.call(function () { S.play('win'); self.bubble(e.p, 'SAFE!', 'uno'); }, null, at + 0.3); break;
+        case 'bhabhi':
+          tl.call(function () { S.play('lose'); S.say('Bhabhi!', 'hi'); self.banner('BHABHI!', 'bad'); }, null, at + 0.5); break;
+        case 'bluffPlay':
+          tl.call(function () { S.play('slide'); self.bubble(e.p, e.n + ' × ' + rankWord(e.rank), 'challenge'); }, null, at); break;
+        case 'pass':
+          tl.call(function () { self.bubble(e.p, 'Pass', ''); }, null, 0); break;
+        case 'bluffCall':
+          tl.call(function () { S.play('challenge'); S.say('Bluff!', 'en'); self.bubble(e.p, 'BLUFF!', 'caught'); }, null, at);
+          tl.call(function () { self.banner(e.honest ? 'TRUTH!' : 'CAUGHT!', e.honest ? 'good' : 'bad'); }, null, at + 0.6);
+          break;
+        case 'seep':
+          tl.call(function () { S.play('win'); S.say('Seep!', 'hi'); self.banner('SEEP! +50', 'good'); self.confetti(); }, null, at + 0.4); break;
+        case 'capture':
+          tl.call(function () { S.play('place'); }, null, at); break;
+        case 'build':
+          tl.call(function () { S.play('place'); self.float('pile', 'House ' + e.value, 'claim'); }, null, at + 0.3); break;
+        case 'cement':
+          tl.call(function () { S.play('color'); self.float('pile', 'Pakka ' + e.value + '!', 'claim'); }, null, at + 0.3); break;
+        case 'bid':
+          tl.call(function () { self.bubble(e.p, 'Bid ' + e.value, 'uno'); }, null, 0); break;
+        case 'pairs':
+          tl.call(function () { S.play('pop'); self.float(e.p, 'Pair!', 'claim'); }, null, at + 0.2); break;
+        case 'pick':
+          tl.call(function () { S.play('flick'); }, null, 0); break;
+        case 'gadha':
+          tl.call(function () { S.play('lose'); S.say('Gadha!', 'hi'); self.banner('GADHA!', 'bad'); }, null, at + 0.5); break;
+        case 'boot':
+          tl.call(function () { e.players.forEach(function (p) { self.chipsFly(self.seatScreen(p), self.potScreen(), 2); }); }, null, at + 0.8); break;
+        case 'bet':
+          tl.call(function () { self.chipsFly(self.seatScreen(e.p), self.potScreen(), Math.min(6, 1 + Math.round(e.amount / 20))); self.float(e.p, '-' + e.amount, 'plus'); }, null, 0); break;
+        case 'raise':
+          tl.call(function () { S.say('Raise!', 'en'); self.bubble(e.p, 'RAISE!', 'uno'); }, null, 0); break;
+        case 'see':
+          tl.call(function () { self.bubble(e.p, 'Seen', ''); }, null, 0); break;
+        case 'pack':
+          tl.call(function () { S.play('skip'); S.say('Pack', 'hi'); self.bubble(e.p, 'Pack', 'caught'); }, null, 0); break;
+        case 'sideshow':
+          tl.call(function () { self.bubble(e.p, 'Side show?', 'challenge'); }, null, 0); break;
+        case 'deny':
+          tl.call(function () { self.bubble(e.p, 'No!', 'caught'); }, null, 0); break;
+        case 'sidecompare':
+          tl.call(function () { S.play('challenge'); self.bubble(e.loser, 'Lost the side show', 'caught'); }, null, at); break;
+        case 'showdown':
+          tl.call(function () { S.play('challenge'); S.say('Show!', 'en'); self.banner('SHOW!', 'good'); }, null, at); break;
+        case 'potWon':
+          tl.call(function () { e.winners.forEach(function (w) { self.chipsFly(self.potScreen(), self.seatScreen(w), 8, 'win'); }); S.play('win'); }, null, at + 0.4); break;
+        case 'trump':
+          tl.call(function () { S.play('color'); self.banner('TRUMP ' + ({ S: '♠', H: '♥', D: '♦', C: '♣' })[e.suit], e.suit === 'H' || e.suit === 'D' ? 'bad' : ''); }, null, at); break;
+        case 'cut':
+          tl.call(function () { self.bubble(e.p, 'Cut!', 'uno'); }, null, at + 0.2); break;
+        case 'trickWon':
+          tl.call(function () { S.play('swap'); }, null, at); break;
+        case 'kot':
+          tl.call(function () { S.say('Kot!', 'hi'); self.banner('KOT!', 'good'); self.confetti(); }, null, at + 0.5); break;
         case 'roundEnd':
           tl.call(function () {
             var mine = e.winner === view.me;

@@ -15,11 +15,88 @@
     attack: { c: 'red', v: 'hit2' }, liars: 'back', dare: { c: 'red', v: 'dare' }, dos: { c: 'wild', v: 'dos' }
   };
   var COLOR_KEYS = ['1', '2', '3', '4'];
+  function sig(id) { var V = E.VARIANTS[id]; return V && V.sig ? V.sig : SIGNATURE[id]; }
+  function backOf(id) { var V = E.VARIANTS[id] || {}; return V.universe === 'desi' ? 'patti' : (id === 'dos' ? 'dos' : 'uno'); }
+  function universeOf(id) { return (E.VARIANTS[id] || {}).universe || 'uno'; }
+  function gamesOf(u) { return Object.keys(E.VARIANTS).filter(function (id) { return universeOf(id) === u; }); }
+
+  /* the whole site switches between the UNO hall and the Desi Patti hall */
+  function applyUniverse() {
+    var u = settings.universe === 'desi' ? 'desi' : 'uno';
+    var th = settings.desiTheme === 'pro' ? 'pro' : 'indian';
+    document.body.dataset.universe = u;
+    document.body.dataset.desiTheme = th;
+    var art = Cards.deckStyle();
+    Cards.setDesiTheme(th);
+    Cards.setDesiDeck(settings.desiDeck || 'noir');
+    if (Cards.deckStyle() !== art) {
+      if (app.table) app.table.refreshFaces();
+      if (app.screen === 'home' && app.homeBuilt) buildHome();
+    }
+    var playingDesi = app.view && app.view.engine === 'patti';
+    S.setPack(u === 'desi' || playingDesi ? th : null);
+    document.title = u === 'desi' ? 'Desi Patti - UNO Arena' : 'UNO Arena';
+    $$('.uni-switch button').forEach(function (b) { b.classList.toggle('active', b.dataset.u === u); });
+    $$('.theme-switch button').forEach(function (b) { b.classList.toggle('active', b.dataset.t === th); });
+  }
+  function hallTransition(kind, mid) {
+    // a giant card spins round while the whole site changes underneath it
+    var desi = kind !== 'uno';
+    app.transitioning = true;
+    var ov = document.createElement('div');
+    ov.className = 'uni-transition ' + (desi ? 'to-desi' : 'to-uno');
+    // the card shows the hall you're leaving, then turns edge-on and comes back as the hall you're entering.
+    // The swap happens exactly at the edge-on moment (no backface tricks, so every browser shows the right side).
+    var nextBack = function () { return Cards.faceImg('back', { back: desi ? 'patti' : 'uno' }); };
+    var front = Cards.faceImg('back', { back: settings.universe === 'desi' ? 'patti' : 'uno' }); // the hall you're in now
+    var next = nextBack();
+    ov.innerHTML = '<div class="ut-burst"></div><div class="ut-card"><img src="' + front + '"><img class="ut-back" src="' + next + '" style="visibility:hidden"></div><div class="ut-title"></div>';
+    document.body.appendChild(ov);
+    var card = $('.ut-card', ov), title = $('.ut-title', ov), frontImg = $('.ut-card img', ov), backImg = $('.ut-back', ov);
+    function swap() {
+      try { mid(); } finally {
+        var src = nextBack();             // the deck can change with the theme
+        if (src !== next) backImg.src = src;
+        frontImg.style.visibility = 'hidden';
+        backImg.style.visibility = 'visible';
+      }
+    }
+    title.textContent = desi ? (settings.desiTheme === 'pro' || kind === 'pro' ? 'DESI PATTI' : 'देसी पत्ती') : 'UNO ARENA';
+    S.play('shuffle');
+    var tl = gsap.timeline({ onComplete: function () { ov.remove(); app.transitioning = false; } });
+    tl.fromTo(ov, { clipPath: 'circle(0% at 50% 50%)' }, { clipPath: 'circle(150% at 50% 50%)', duration: 0.55, ease: 'power2.in' })
+      .fromTo(card, { scale: 0.2, rotationY: -90, rotationZ: -20 }, { scale: 1, rotationY: 0, rotationZ: -6, duration: 0.5, ease: 'back.out(1.6)' }, 0.2)
+      .to(card, { rotationY: 90, duration: 0.28, ease: 'power2.in', onComplete: swap })
+      .fromTo(card, { rotationY: -90 }, { rotationY: 0, duration: 0.3, ease: 'power2.out', immediateRender: false })
+      .fromTo(title, { y: 30, opacity: 0, scale: 0.8 }, { y: 0, opacity: 1, scale: 1, duration: 0.35, ease: 'back.out(2)' }, '-=0.2')
+      .to(card, { scale: 0.1, rotationZ: 30, y: -40, opacity: 0, duration: 0.45, ease: 'power2.in' }, '+=0.35')
+      .to(title, { opacity: 0, duration: 0.25 }, '<')
+      .to(ov, { clipPath: 'circle(0% at 50% 50%)', duration: 0.5, ease: 'power2.inOut' }, '-=0.15');
+    for (var i = 0; i < 26; i++) {
+      var d = document.createElement('i');
+      $('.ut-burst', ov).appendChild(d);
+      var a = Math.random() * Math.PI * 2, r = 120 + Math.random() * 380;
+      gsap.fromTo(d, { x: 0, y: 0, rotation: 0, opacity: 1 }, { x: Math.cos(a) * r, y: Math.sin(a) * r, rotation: Math.random() * 720, opacity: 0, duration: 1.4 + Math.random() * 0.6, delay: 0.7, ease: 'power2.out' });
+    }
+  }
+  function setUniverse(u) {
+    if (settings.universe === u || app.transitioning) return;
+    hallTransition(u === 'desi' ? settings.desiTheme : 'uno', function () {
+      settings.universe = u;
+      saveSettings();
+      buildHome();
+      $('#screen-home').scrollTop = 0;
+    });
+  }
+  function setDesiTheme(t) {
+    if (settings.desiTheme === t || app.transitioning) return;
+    hallTransition(t, function () { settings.desiTheme = t; saveSettings(); buildHome(); });
+  }
 
   /* ------------------------------------------------------------------ */
   /* settings                                                            */
   /* ------------------------------------------------------------------ */
-  var DEFAULT_SETTINGS = { sound: true, voice: true, volume: 0.7, anim: 1, theme: 'green', hints: true, sortHand: true, botSpeed: 1, name: '', avatar: 'panda' };
+  var DEFAULT_SETTINGS = { sound: true, voice: true, volume: 0.7, anim: 1, theme: 'green', hints: true, sortHand: true, botSpeed: 1, name: '', avatar: 'panda', universe: 'uno', desiTheme: 'indian', desiDeck: 'noir' };
   var settings = Object.assign({}, DEFAULT_SETTINGS);
   try { Object.assign(settings, JSON.parse(localStorage.getItem('uno.settings') || '{}')); } catch (e) { /* ignore */ }
   function saveSettings() {
@@ -27,6 +104,7 @@
     applySettings();
   }
   function applySettings() {
+    applyUniverse();
     S.configure({ on: settings.sound, voice: settings.voice, volume: +settings.volume });
     document.body.dataset.theme = settings.theme;
     if (app.table) app.table.speed = +settings.anim;
@@ -79,61 +157,145 @@
   /* ------------------------------------------------------------------ */
   /* home                                                                */
   /* ------------------------------------------------------------------ */
+  /* ------------------------------------------------------------------ */
+  /* hero showcase                                                       */
+  /* ------------------------------------------------------------------ */
+  function buildShowcase(desiHall) {
+    var old = app.showcase;
+    if (old) { gsap.ticker.remove(old.tick); clearInterval(old.timer); gsap.killTweensOf(old.els); }
+    var fan = $('#lpFan');
+    fan.innerHTML = '';
+    var back = Cards.faceImg('back', { back: desiHall ? 'patti' : 'uno' });
+    var heroFaces = desiHall ? [{ s: 'S', r: 'A' }, { s: 'H', r: 'K' }, { s: 'D', r: 'Q' }, { s: 'C', r: 'J' }, { s: 'H', r: 'A' }]
+      : [{ c: 'wild', v: 'wild4' }, { c: 'yellow', v: 'draw2' }, { c: 'blue', v: 'reverse' }, { c: 'green', v: 'skip' }, { c: 'red', v: '7' }, { c: 'wild', v: 'wild' }];
+    var ringFaces = desiHall
+      ? [{ s: 'H', r: '10' }, { s: 'S', r: '7' }, { s: 'C', r: 'K' }, { s: 'H', r: 'Q' }, { s: 'D', r: '9' }, { s: 'S', r: 'J' }, { s: 'D', r: 'A' }, { s: 'C', r: '5' }, { s: 'H', r: '8' }, 'back']
+      : [{ c: 'red', v: '7' }, { c: 'blue', v: 'reverse' }, { c: 'green', v: 'skip' }, { c: 'yellow', v: 'draw2' }, { c: 'wild', v: 'wild' }, { c: 'red', v: 'draw2' }, { c: 'blue', v: '0' }, { c: 'green', v: '5' }, { c: 'yellow', v: '9' }, 'back'];
+    var img = function (f) { return f === 'back' ? back : Cards.faceImg(f); };
+
+    fan.innerHTML = '<div class="sh-pool"></div><div class="sh-orbit"></div><div class="sh-sparks">' + new Array(14).join('<i></i>') + '</div>' +
+      '<div class="sh-halo"></div><div class="sh-hero"><img class="sh-reflect" alt=""><div class="sh-hero-in"><img alt=""><i class="sh-sheen"></i></div></div>';
+    var hero = $('.sh-hero', fan), heroIn = $('.sh-hero-in', fan), heroImg = $('.sh-hero-in img', fan), reflect = $('.sh-reflect', fan);
+    heroImg.src = reflect.src = img(heroFaces[0]);
+    var ring = ringFaces.map(function (f) {
+      var c = document.createElement('div');
+      c.className = 'sh-card';
+      c.innerHTML = '<img src="' + img(f) + '" alt="">';
+      c.dataset.face = JSON.stringify(f);
+      fan.appendChild(c);
+      return c;
+    });
+    $$('.sh-sparks i', fan).forEach(function (sp, i) {
+      sp.style.left = (8 + Math.random() * 84) + '%';
+      sp.style.animationDelay = (-Math.random() * 6).toFixed(2) + 's';
+      sp.style.animationDuration = (4 + Math.random() * 4).toFixed(2) + 's';
+    });
+
+    // turn the featured card edge-on, swap its face, turn it back
+    var idx = 0, flipping = false;
+    function showFace(f) {
+      if (flipping) return;
+      flipping = true;
+      gsap.timeline({ onComplete: function () { flipping = false; } })
+        .to(reflect, { opacity: 0, duration: 0.2 }, 0)
+        .to(heroIn, { rotationY: 90, duration: 0.32, ease: 'power2.in' }, 0)
+        .add(function () { heroImg.src = reflect.src = img(f); })
+        .fromTo(heroIn, { rotationY: -90 }, { rotationY: 0, duration: 0.42, ease: 'back.out(1.6)', immediateRender: false })
+        .fromTo($('.sh-sheen', heroIn), { xPercent: -160 }, { xPercent: 160, duration: 0.8, ease: 'power2.inOut' }, '-=0.2')
+        .to(reflect, { opacity: 1, duration: 0.35 }, '-=0.6');
+      S.play('flick');
+    }
+    var timer = setInterval(function () {
+      if (app.screen !== 'home' || document.hidden) return;
+      idx = (idx + 1) % heroFaces.length;
+      showFace(heroFaces[idx]);
+    }, 3600);
+    hero.addEventListener('click', function () { idx = (idx + 1) % heroFaces.length; showFace(heroFaces[idx]); });
+    ring.forEach(function (c) {
+      c.addEventListener('click', function () { var f = JSON.parse(c.dataset.face); if (f !== 'back') showFace(f); });
+    });
+
+    // the ring: each card's place, size and depth worked out every frame
+    var angle = 0, speed = 1, target = 1, n = ring.length;
+    var stageEl = $('#lpStage'), orbit = $('.sh-orbit', fan);
+    stageEl.onpointerenter = function () { target = 0.25; };
+    stageEl.onpointerleave = function () { target = 1; };
+    function tick(time, dt) {
+      if (app.screen !== 'home') return;
+      speed += (target - speed) * 0.05;
+      angle += (dt / 1000) * 0.32 * speed;
+      var w = stageEl.clientWidth || 500, narrow = w < 520;
+      var rx = Math.min(w * 0.45, 310), ry = narrow ? 62 : 104, lift = narrow ? 42 : 66;
+      gsap.set(orbit, { width: rx * 2, height: ry * 2, x: -rx, y: lift - ry });
+      for (var i = 0; i < n; i++) {
+        var a = angle + i * Math.PI * 2 / n;
+        var d = Math.cos(a);                 // 1 = nearest the viewer, -1 = far side
+        var sc = 0.62 + 0.3 * (d + 1) / 2;
+        gsap.set(ring[i], {
+          x: Math.sin(a) * rx, y: lift + d * ry, scale: sc,
+          rotationY: -Math.sin(a) * 38, rotation: Math.sin(a) * 8, transformPerspective: 800,
+          zIndex: d > 0.15 ? 60 + Math.round(d * 20) : 10 + Math.round((d + 1) * 10),
+          opacity: 0.45 + 0.55 * (d + 1) / 2
+        });
+      }
+    }
+    gsap.ticker.add(tick);
+    tick(0, 0);
+    // entrance: the featured card drops in and the ring fans out from it
+    gsap.fromTo(hero, { y: -120, scale: 0.4, opacity: 0, rotation: -25 }, { y: 0, scale: 1, opacity: 1, rotation: 0, duration: 0.9, delay: 0.25, ease: 'back.out(1.5)' });
+    // set the 3D depth once: tweening transformPerspective would grow it from 0 and blow the card up
+    gsap.set([hero, heroIn], { transformPerspective: 900 });
+    gsap.fromTo(hero, { rotationY: -8, rotationX: 0 }, { rotationY: 10, rotationX: -6, duration: 3.2, repeat: -1, yoyo: true, ease: 'sine.inOut', delay: 1.2 });
+    gsap.fromTo(ring.map(function (c) { return c.firstChild; }), { scale: 0, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.6, stagger: 0.06, delay: 0.5, ease: 'back.out(1.7)' });
+    app.showcase = { tick: tick, timer: timer, els: [hero, heroIn].concat(ring) };
+  }
+
   function buildHome() {
+    app.homeBuilt = true;
     var grid = $('#variantGrid');
     grid.innerHTML = '';
-    Object.keys(E.VARIANTS).forEach(function (id, n) {
+    gamesOf(settings.universe === 'desi' ? 'desi' : 'uno').forEach(function (id, n) {
       var V = E.VARIANTS[id];
       var tile = document.createElement('article');
       tile.className = 'mode';
       tile.style.setProperty('--accent', V.accent);
-      tile.innerHTML = '<div class="mode-card"><div class="mode-art">' + cardImg(SIGNATURE[id], 'mode-img') + cardImg('back', 'mode-img mode-img-back', id === 'dos' ? 'dos' : 'uno') + '</div>' +
+      tile.innerHTML = '<div class="mode-card"><div class="mode-art">' + cardImg(sig(id), 'mode-img') + cardImg('back', 'mode-img mode-img-back', backOf(id)) + '</div>' +
         '<span class="mode-players">' + I.svg('user') + ' ' + V.players[0] + '-' + V.players[1] + '</span></div>' +
         '<div class="mode-body"><h3>' + esc(V.name) + '</h3><p>' + esc(V.tagline) + '</p>' +
         '<div class="mode-actions"><button class="cta cta-yellow cta-sm" data-play>' + I.svg('play') + ' Play</button><button class="mode-rules" data-rules>' + I.svg('book-open-01') + ' Rules</button></div></div>';
       tile.querySelector('[data-play]').onclick = function () { openSetup(id); };
       tile.querySelector('[data-rules]').onclick = function () { openRules(id); };
       tile.querySelector('.mode-card').onclick = function () { openSetup(id); };
+      gsap.set(tile, { transformPerspective: 900 });
       tile.addEventListener('pointermove', function (e) {
         var r = tile.getBoundingClientRect();
         var x = (e.clientX - r.left) / r.width - 0.5, y = (e.clientY - r.top) / r.height - 0.5;
-        gsap.to(tile, { rotationY: x * 10, rotationX: -y * 8, duration: 0.4, transformPerspective: 900 });
+        gsap.to(tile, { rotationY: x * 10, rotationX: -y * 8, duration: 0.4 });
       });
       tile.addEventListener('pointerleave', function () { gsap.to(tile, { rotationY: 0, rotationX: 0, duration: 0.6 }); });
       grid.appendChild(tile);
     });
-    $$('.how-card').forEach(function (img) { var f = img.dataset.face; img.src = Cards.faceImg({ c: { r: 'red', y: 'yellow', g: 'green' }[f[0]], v: f.slice(1) }); });
+    var desiHall = settings.universe === 'desi';
+    $$('.how-card').forEach(function (img, i) {
+      var f = img.dataset.face;
+      img.src = desiHall ? Cards.faceImg([{ s: 'S', r: 'A' }, { s: 'H', r: '2' }, { s: 'D', r: '3' }][i]) : Cards.faceImg({ c: { r: 'red', y: 'yellow', g: 'green' }[f[0]], v: f.slice(1) });
+    });
 
-    // hero: a fanned hand of real cards dealt onto the stage
-    var fan = $('#lpFan');
-    fan.innerHTML = '';
-    var faces = [{ c: 'blue', v: 'reverse' }, { c: 'green', v: 'skip' }, { c: 'red', v: '7' }, { c: 'yellow', v: 'draw2' }, { c: 'wild', v: 'wild4' }];
-    var cardsEls = faces.map(function (f, i) {
-      var c = document.createElement('div');
-      c.className = 'lp-card';
-      c.innerHTML = '<img src="' + Cards.faceImg(f) + '" alt=""><img class="lp-card-back" src="' + Cards.faceImg('back') + '" alt="">';
-      fan.appendChild(c);
-      return c;
-    });
-    var n = cardsEls.length;
-    var narrow = window.innerWidth < 600;
-    var spread = narrow ? Math.min(30, (window.innerWidth - 200) / (n - 1)) : 62;
-    cardsEls.forEach(function (c, i) {
-      var off = i - (n - 1) / 2;
-      gsap.set(c, { x: 0, y: 260, rotation: 0, rotationY: 180, opacity: 0, transformOrigin: '50% 115%' });
-      gsap.to(c, { opacity: 1, y: Math.abs(off) * 14, x: off * spread, rotation: off * (narrow ? 7 : 11), rotationY: 0, duration: 0.9, delay: 0.35 + i * 0.12, ease: 'back.out(1.4)' });
-      c.addEventListener('pointerenter', function () { gsap.to(c, { y: Math.abs(off) * 14 - 40, scale: 1.06, duration: 0.25 }); });
-      c.addEventListener('pointerleave', function () { gsap.to(c, { y: Math.abs(off) * 14, scale: 1, duration: 0.3 }); });
-    });
-    gsap.to(fan, { y: -12, duration: 2.6, repeat: -1, yoyo: true, ease: 'sine.inOut', delay: 1.4 });
+    // hero showcase: a big featured card that turns to a new card every few seconds,
+    // with a ring of cards orbiting round it over a pool of light
+    buildShowcase(desiHall);
+    $('.lp-sticker').textContent = desiHall ? (settings.desiTheme === 'pro' ? 'ACE!' : 'शाबाश!') : 'UNO!';
     gsap.fromTo('.lp-sticker', { scale: 0, rotation: -40 }, { scale: 1, rotation: 12, duration: 0.7, delay: 1.3, ease: 'elastic.out(1, .5)' });
     gsap.to('.lp-sticker', { scale: 1.08, duration: 0.8, repeat: -1, yoyo: true, ease: 'sine.inOut', delay: 2 });
-    var stage = $('#lpStage');
-    $('#screen-home').addEventListener('pointermove', function (e) {
-      var x = e.clientX / window.innerWidth - 0.5, y = e.clientY / window.innerHeight - 0.5;
-      gsap.to(stage, { rotationY: x * 18, rotationX: -y * 12, duration: 0.8, transformPerspective: 1000 });
-      gsap.to('.lp-oval', { x: x * -30, y: y * -20, duration: 1 });
-    });
+    if (!app.heroBound) {
+      app.heroBound = true;
+      var stage = $('#lpStage');
+      gsap.set(stage, { transformPerspective: 1100 });
+      $('#screen-home').addEventListener('pointermove', function (e) {
+        var x = e.clientX / window.innerWidth - 0.5, y = e.clientY / window.innerHeight - 0.5;
+        gsap.to(stage, { rotationY: x * 14, rotationX: -y * 10, duration: 0.8 });
+      });
+    }
     gsap.from('.lp-copy > *', { y: 30, opacity: 0, duration: 0.7, stagger: 0.08, ease: 'power3.out' });
     gsap.from('.lp-features span', { y: 20, opacity: 0, duration: 0.5, stagger: 0.06, delay: 0.6 });
 
@@ -152,10 +314,11 @@
     // drifting cards in the hero background
     var hc = $('#homeCards');
     hc.innerHTML = '';
-    var bg = [{ c: 'red', v: '7' }, { c: 'wild', v: 'wild4' }, { c: 'blue', v: 'reverse' }, { c: 'green', v: 'skip' }, { c: 'yellow', v: 'draw2' }, 'back', { c: 'red', v: '0' }, { c: 'wild', v: 'wild' }];
+    var bg = desiHall ? [{ s: 'S', r: 'K' }, { s: 'H', r: '7' }, 'back', { s: 'D', r: '10' }, { s: 'C', r: 'A' }, { s: 'H', r: 'Q' }, 'back', { s: 'S', r: '9' }]
+      : [{ c: 'red', v: '7' }, { c: 'wild', v: 'wild4' }, { c: 'blue', v: 'reverse' }, { c: 'green', v: 'skip' }, { c: 'yellow', v: 'draw2' }, 'back', { c: 'red', v: '0' }, { c: 'wild', v: 'wild' }];
     bg.forEach(function (f, i) {
       var img = document.createElement('img');
-      img.src = Cards.faceImg(f);
+      img.src = Cards.faceImg(f, { back: desiHall ? 'patti' : 'uno' });
       img.className = 'float-card';
       hc.appendChild(img);
       gsap.set(img, { left: (i / bg.length) * 100 + '%', top: (10 + Math.random() * 70) + '%', rotation: Math.random() * 60 - 30 });
@@ -167,16 +330,20 @@
     $$('[data-scroll]').forEach(function (a) { a.onclick = function (e) { e.preventDefault(); scrollTo(a.dataset.scroll); }; });
     home.addEventListener('scroll', function () { $('#lpNav').classList.toggle('solid', home.scrollTop > 40); });
     var quick = function () {
-      setup.variant = 'classic'; setup.mode = 'cpu';
-      startLocal('classic', E.VARIANTS.classic.defaults, cpuSeats(3, 'normal'));
+      var qv = settings.universe === 'desi' ? 'bhabhi' : 'classic';
+      setup.variant = qv; setup.mode = 'cpu';
+      startLocal(qv, E.VARIANTS[qv].defaults, cpuSeats(3, 'normal'));
     };
     $('#btnQuick').onclick = quick;
     $('#navPlay').onclick = function () { scrollTo('modes'); };
     $('#btnFinalPlay').onclick = function () { scrollTo('modes'); };
-    $('#btnOnline').onclick = function () { openSetup(setup.variant || 'classic', 'online'); };
-    $('#btnPassPlay').onclick = function () { openSetup(setup.variant || 'classic', 'pass'); };
-    $('#btnHowTo').onclick = function () { openRules('classic'); };
-    $('#navRules').onclick = function (e) { e.preventDefault(); openRules('classic'); };
+    var hallDefault = function () { var g = gamesOf(settings.universe === 'desi' ? 'desi' : 'uno'); return g.indexOf(setup.variant) >= 0 ? setup.variant : g[0]; };
+    $('#btnOnline').onclick = function () { openSetup(hallDefault(), 'online'); };
+    $('#btnPassPlay').onclick = function () { openSetup(hallDefault(), 'pass'); };
+    $('#btnHowTo').onclick = function () { openRules(hallDefault()); };
+    $('#navRules').onclick = function (e) { e.preventDefault(); openRules(hallDefault()); };
+    $$('.uni-switch button').forEach(function (b) { b.onclick = function () { setUniverse(b.dataset.u); }; });
+    $$('.theme-switch button').forEach(function (b) { b.onclick = function () { setDesiTheme(b.dataset.t); }; });
     $('#btnSettingsHome').onclick = openSettings;
   }
 
@@ -233,11 +400,11 @@
     setup.mode = mode || setup.mode || 'cpu';
     var V = E.VARIANTS[variant];
     setup.opts = Object.assign({}, V.defaults);
-    setup.cpuCount = Math.min(setup.cpuCount, V.players[1] - 1);
+    setup.cpuCount = fitCount(V, setup.cpuCount + 1) - 1;
     if (!setup.pass) setup.pass = [{ name: settings.name || 'Player 1', kind: 'human', avatar: settings.avatar }, { name: 'Player 2', kind: 'human', avatar: rnd(AVATARS) }];
     $('#setupName').textContent = V.name;
     $('#setupTag').textContent = V.tagline;
-    $('#setupCard').src = Cards.faceImg(SIGNATURE[variant]);
+    $('#setupCard').src = Cards.faceImg(sig(variant));
     $('#cpuName').value = settings.name || '';
     $('#onName').value = settings.name || '';
     $('#cpuAvatar').innerHTML = av(settings.avatar);
@@ -301,6 +468,14 @@
       if (fixedTxt.length) { note.textContent = 'Always on in this mode: ' + fixedTxt.join(', ') + '.'; root.appendChild(note); }
     }
   }
+  // nearest allowed table size (Seep: 2 or 4, Court Piece: exactly 4)
+  function fitCount(V, n) {
+    var allowed = V.allowed || [];
+    if (!allowed.length) for (var i = V.players[0]; i <= V.players[1]; i++) allowed.push(i);
+    var best = allowed[0];
+    allowed.forEach(function (a) { if (Math.abs(a - n) < Math.abs(best - n)) best = a; });
+    return best;
+  }
   function cpuSeats(n, level) {
     var seats = [{ name: settings.name || 'You', kind: 'human', avatar: settings.avatar }];
     var names = BOT_NAMES.slice().sort(function () { return Math.random() - 0.5; });
@@ -336,7 +511,10 @@
     $$('#screen-setup .stepper button').forEach(function (b) {
       b.onclick = function () {
         var V = E.VARIANTS[setup.variant];
-        setup.cpuCount = Math.max(V.players[0] - 1, Math.min(V.players[1] - 1, setup.cpuCount + +b.dataset.step));
+        var allowed = V.allowed || null;
+        var want = setup.cpuCount + 1 + +b.dataset.step;
+        if (allowed) { var idx = allowed.indexOf(setup.cpuCount + 1) + +b.dataset.step; want = allowed[Math.max(0, Math.min(allowed.length - 1, idx))]; }
+        setup.cpuCount = Math.max(V.players[0], Math.min(V.players[1], want)) - 1;
         $('#cpuCount').textContent = setup.cpuCount;
       };
     });
@@ -362,6 +540,8 @@
       if (setup.mode === 'cpu') startLocal(setup.variant, setup.opts, cpuSeats(setup.cpuCount, setup.level));
       else if (setup.mode === 'pass') {
         if (!setup.pass.some(function (p) { return p.kind === 'human'; })) return toast('Add at least one human player', 'error');
+        var PV = E.VARIANTS[setup.variant];
+        if (fitCount(PV, setup.pass.length) !== setup.pass.length || setup.pass.length < PV.players[0]) return toast(PV.name + ' needs ' + (PV.allowed ? PV.allowed.join(' or ') : PV.players[0] + '-' + PV.players[1]) + ' players', 'error');
         startLocal(setup.variant, setup.opts, setup.pass.map(function (p, i) { return { name: (p.name || '').trim() || ('Player ' + (i + 1)), kind: p.kind, level: p.level || 'normal', avatar: p.avatar }; }));
       }
     };
@@ -400,6 +580,7 @@
       onDeckClick: onDeckClick,
       onSlotClick: onSlotClick,
       onSeatClick: onSeatClick,
+      onOppCardClick: onOppCardClick,
       onToast: toast,
       sortHand: function () { return settings.sortHand; },
       queueBoost: function () { return app.queue.length > 2 ? 2.2 : (app.queue.length > 0 ? 1.4 : 1); },
@@ -411,6 +592,8 @@
 
   function endSession() {
     if (app.session && app.session.controller) app.session.controller.destroy();
+    clearInterval(app.timerInt); app.timerInt = null;
+    if (app.clockEl) app.clockEl.remove();
     app.session = null;
     app.queue = [];
     app.view = null;
@@ -428,6 +611,8 @@
     var session = app.session = { type: 'local', game: game, humans: humans, viewer: humans.length ? humans[0] : 0, config: { variant: variant, opts: opts, seats: seats } };
     session.controller = new window.UNOController.Controller(game, {
       botDelay: 800,
+      turnTimer: +(game.o && game.o.turnTimer) || 0,
+      onTimeout: function () { if (app.session === session) toast('Time\'s up - auto move', 'info'); },
       onUpdate: function (events) {
         if (app.session !== session) return;
         enqueue({ view: game.view(session.viewer), events: events });
@@ -524,6 +709,7 @@
     var cv = mine.hand.filter(function (c) { return c.id === id; })[0];
     if (!cv) return;
     if (v.engine === 'dos') return dosCardClick(id);
+    if (v.engine === 'patti') return pattiCardClick(id);
     // Liar's: Liar cards (with circles) are always played face-down with an announcement
     if (legal('bluff').some(function (a) { return a.cardId === id; })) return openClaimPicker(id);
     if (cv.a && cv.a.l && v.variant === 'liars') { S.play('error'); shakeCard(id); toast(v.actor === v.me ? 'Liar cards can\'t be played right now' : 'Wait for your turn', 'info'); return; }
@@ -550,6 +736,132 @@
   function onSeatClick(pid) {
     var t = legal('target').filter(function (a) { return a.target === pid; })[0];
     if (t) { closeModal(); act(t); }
+  }
+
+  /* Desi games */
+  function pattiCardClick(id) {
+    var v = app.view;
+    if (v.actor !== v.me) { S.play('error'); shakeCard(id); toast('Wait for your turn', 'info'); return; }
+    if (v.select) {
+      // Bluff: pick 1-4 cards, then press Play
+      var i = app.selected.indexOf(id);
+      if (i >= 0) app.selected.splice(i, 1);
+      else if (app.selected.length < v.select.max) app.selected.push(id);
+      else { S.play('error'); toast('At most ' + v.select.max + ' cards', 'info'); return; }
+      S.play('flick');
+      app.table.selected = app.selected;
+      app.table.relayout();
+      renderHud(v);
+      return;
+    }
+    var moves = (v.legal || []).filter(function (a) { return a.cardId === id && a.type !== 'pick'; });
+    if (!moves.length) { S.play('error'); shakeCard(id); toast(v.status || 'That card can\'t be played now', 'info'); return; }
+    if (moves.length === 1) { S.play('flick'); app.pattiChoice = null; act(moves[0]); return; }
+    // Seep: several things this card can do
+    app.pattiChoice = { cardId: id, moves: moves };
+    renderHud(v);
+  }
+  function onOppCardClick(id) {
+    var v = app.view;
+    if (!v || v.engine !== 'patti') return;
+    var pick = (v.legal || []).filter(function (a) { return a.type === 'pick' && a.cardId === id; })[0];
+    if (pick) { S.play('flick'); act(pick); }
+  }
+  function pattiPlaySelected() {
+    var v = app.view;
+    var sel = app.selected.slice();
+    if (!v.select || sel.length < v.select.min) return toast('Select the cards to play first', 'info');
+    if (!v.select.needRank) { app.selected = []; act({ type: 'play', cardIds: sel }); return; }
+    var counts = {};
+    sel.forEach(function (id) { var c = me().hand.filter(function (x) { return x.id === id; })[0]; if (c && c.a) counts[c.a.r] = (counts[c.a.r] || 0) + 1; });
+    var ranks = ['A', 'K', 'Q', 'J', '10', '9', '8', '7', '6', '5', '4', '3', '2'];
+    var card = modal('<h2>Claim a rank</h2><p class="hint">You\'re putting ' + sel.length + ' card' + (sel.length > 1 ? 's' : '') + ' face-down. Say they are… (truth or bluff!)</p>' +
+      '<div class="rank-grid">' + ranks.map(function (r) { return '<button data-r="' + r + '"' + (counts[r] ? ' class="truth"' : '') + '><b>' + r + '</b>' + (counts[r] ? '<small>you hold ' + counts[r] + '</small>' : '') + '</button>'; }).join('') + '</div>' +
+      '<div class="pr-btns"><button class="btn ghost" data-close>Cancel</button></div>', { id: 'rank', cls: 'claim-modal' });
+    $$('[data-r]', card).forEach(function (b) {
+      b.onclick = function () { closeModal(); app.selected = []; act({ type: 'play', cardIds: sel, rank: b.dataset.r }); };
+    });
+  }
+  var BTN_STYLE = { green: 'ab-green', yellow: 'ab-yellow', red: 'ab-red', blue: 'ab-blue', wild: 'ab-wild' };
+  var BTN_ICON = { pass: 'arrow-right-01', bluff: 'alert-02', see: 'eye', chaal: 'checkmark-circle-02', raise: 'flash', pack: 'cancel-01', show: 'cards-01', sideshow: 'view-off', allin: 'fire', accept: 'checkmark-circle-02', deny: 'cancel-01', play: 'play' };
+  function renderPattiHud(v, early) {
+    var m = v.me != null ? v.players[v.me] : null;
+    var myTurn = v.actor === v.me && v.me != null;
+    ['#btnUno', '#btnCatch', '#btnDraw', '#btnPass', '#btnEndTurn'].forEach(function (s) { $(s).classList.add('hidden'); });
+    $('#hudVariant').textContent = (E.VARIANTS[v.variant] || {}).short || v.name;
+    $('#hudRound').textContent = 'Round ' + v.round + (v.rounds > 1 ? ' of ' + v.rounds : '');
+    if (m) {
+      $('#meAv').innerHTML = av(m.avatar);
+      $('#meName').textContent = m.name + (app.session && app.session.type === 'local' && app.session.humans.length > 1 ? '' : ' (you)');
+      var meta = [m.count + ' card' + (m.count === 1 ? '' : 's')];
+      if (v.chips) meta.push('◉ ' + m.score + ' chips'); else if (v.rounds > 1 || v.teams) meta.push(m.score + ' pts');
+      if (m.tag && m.tag !== 'BLIND' && m.tag !== 'SEEN') meta.push(m.tag);
+      $('#meMeta').textContent = meta.join(' · ');
+      $('#mePanel').classList.toggle('active', myTurn);
+      $('#mePanel').classList.remove('hidden');
+    } else $('#mePanel').classList.add('hidden');
+    if (!myTurn) { app.pattiChoice = null; if (app.selected.length && v.select == null) app.selected = []; }
+    // buttons
+    var btns = [];
+    (v.buttons && v.buttons.length ? v.buttons : (v.legal || []).filter(function (a) { return a.label && (a.type === 'pass' || a.type === 'bluff'); })).forEach(function (a) {
+      btns.push({ label: a.label, style: a.style || (a.type === 'bluff' ? 'red' : 'blue'), icon: BTN_ICON[a.type] || 'play', action: a });
+    });
+    if (v.select && myTurn) btns.unshift({ label: v.select.label + (app.selected.length ? ' (' + app.selected.length + ')' : ''), style: 'yellow', icon: 'play', select: true, disabled: app.selected.length < v.select.min });
+    var box = $('#pattiBtns');
+    var sigKey = JSON.stringify(btns.map(function (b) { return [b.label, b.disabled]; }));
+    if (box.dataset.k !== sigKey) {
+      box.dataset.k = sigKey;
+      box.innerHTML = '';
+      btns.forEach(function (b) {
+        var el = document.createElement('button');
+        el.className = 'act-btn ' + (BTN_STYLE[b.style] || 'ab-blue');
+        el.disabled = !!b.disabled;
+        el.innerHTML = '<span class="ab-ic">' + ic(b.icon) + '</span><span class="ab-txt">' + esc(b.label) + '</span>';
+        el.onclick = function () { if (b.select) pattiPlaySelected(); else act(b.action); };
+        box.appendChild(el);
+      });
+    }
+    // playable cards
+    var playable = [];
+    if (myTurn) {
+      if (v.select) (m ? m.hand : []).forEach(function (c) { playable.push(c.id); });
+      else (v.legal || []).forEach(function (a) { if (a.cardId && a.type !== 'pick' && playable.indexOf(a.cardId) < 0) playable.push(a.cardId); });
+    }
+    app.table.markCards(settings.hints ? playable : [], myTurn && settings.hints && !v.select, app.selected, myTurn ? v.pickFrom : null);
+    // status
+    var st = $('#hudStatus');
+    var txt = v.status || '';
+    if (v.myHandName) txt += ' · Your hand: ' + v.myHandName;
+    if (st.textContent !== txt) { st.textContent = txt; gsap.fromTo(st, { xPercent: -50, x: 0, y: -6, opacity: 0.4 }, { xPercent: -50, x: 0, y: 0, opacity: 1, duration: 0.25 }); } // stay centred whatever the text length
+    st.classList.toggle('mine', myTurn);
+    // prompt: trump / bid choices, or the moves a Seep card can make
+    var p = $('#prompt');
+    var html = '';
+    var opts = [];
+    if (myTurn && v.prompt) { html = '<h4>' + esc(v.prompt.title) + '</h4>' + (v.prompt.text ? '<p>' + esc(v.prompt.text) + '</p>' : ''); opts = v.prompt.options; }
+    else if (myTurn && app.pattiChoice) {
+      var cv = (m ? m.hand : []).filter(function (c) { return c.id === app.pattiChoice.cardId; })[0];
+      html = '<h4>What should ' + (cv && cv.a ? esc(window.UNOPattiArt.short(cv.a)) : 'this card') + ' do?</h4>';
+      opts = app.pattiChoice.moves.map(function (a) { return { label: a.label, action: a }; });
+    }
+    if (opts.length) html += '<div class="choice-list">' + opts.map(function (o, i) { return '<button class="btn big' + (o.suit ? ' suit-' + o.suit : '') + '" data-o="' + i + '">' + esc(o.label) + '</button>'; }).join('') + '</div>' + (app.pattiChoice ? '<div class="pr-btns"><button class="btn ghost" data-cancel>Cancel</button></div>' : '');
+    if (early) return;
+    if (p.dataset.html !== html) {
+      p.dataset.html = html;
+      p.innerHTML = html;
+      p.classList.toggle('show', !!html);
+      if (html) gsap.fromTo(p, { y: 30, opacity: 0, scale: 0.95 }, { y: 0, opacity: 1, scale: 1, duration: 0.3, ease: 'back.out(1.7)' });
+      $$('[data-o]', p).forEach(function (b) { b.onclick = function () { var o = opts[+b.dataset.o]; app.pattiChoice = null; act(o.action); }; });
+      var cb = $('[data-cancel]', p);
+      if (cb) cb.onclick = function () { app.pattiChoice = null; renderHud(app.view); };
+    }
+    var key = v.round + ':' + v.turnNo + ':' + v.actor;
+    if (myTurn && app.lastTurnKey !== key && v.phase !== 'roundOver') S.play('turn');
+    app.lastTurnKey = key;
+    if (v.phase === 'roundOver' && app.shownRoundEnd !== v.round + ':' + v.gameOver) {
+      app.shownRoundEnd = v.round + ':' + v.gameOver;
+      setTimeout(function () { showRoundEnd(app.view); }, 1300);
+    }
   }
 
   /* DOS */
@@ -586,10 +898,20 @@
   function clearPromptIfStale(v) {
     if (app.modalOpen === 'claim' && (v.actor !== v.me || v.phase !== 'turn')) closeModal();
     if (app.modalOpen === 'target' && (v.phase !== 'target' || v.actor !== v.me)) closeModal();
+    // the turn moved on (e.g. the clock ran out): drop half-made desi choices
+    if (v.actor !== v.me) {
+      if (app.modalOpen === 'rank') closeModal();
+      app.pattiChoice = null;
+    }
+    var mine = v.me != null && v.players[v.me] ? v.players[v.me].hand.map(function (c) { return c.id; }) : [];
+    app.selected = app.selected.filter(function (id) { return mine.indexOf(id) >= 0; });
   }
 
   function renderHud(v, early) {
     if (!v) return;
+    document.body.dataset.playing = v.engine;
+    $('#pattiBtns').classList.toggle('hidden', v.engine !== 'patti');
+    if (v.engine === 'patti') { renderPattiHud(v, early); updateTimer(); return; }
     var m = v.me != null ? v.players[v.me] : null;
     var myTurn = v.actor === v.me && v.me != null;
     var isDos = v.engine === 'dos';
@@ -753,21 +1075,45 @@
     $$('[data-act]', p).forEach(function (b) { b.onclick = function () { act({ type: b.dataset.act }); }; });
   }
 
+  // turn clock: a ring fills around the avatar of whoever is on the clock, with the seconds left
+  function clockDeadline() {
+    var s = app.session;
+    // local games read the controller live, so pauses and pass-and-play hand-overs restart it correctly
+    return s && s.type === 'local' ? s.controller.deadline : app.deadline;
+  }
+  function clockHost(pid) {
+    if (pid === app.view.me) return $('#meAv');
+    var seat = app.table && app.table.seats && app.table.seats[pid];
+    return seat ? seat.querySelector('.seat-av') : null;
+  }
   function updateTimer() {
-    var bar = $('#timerBar');
-    clearInterval(app.timerInt);
-    if (!app.deadline || !app.view || app.view.phase === 'roundOver') { bar.classList.add('hidden'); return; }
-    var total = Math.max(1000, app.deadline - Date.now());
-    bar.classList.remove('hidden');
-    bar.classList.toggle('mine', app.view.actor === app.view.me);
-    var fill = bar.firstChild;
-    var lastTick = 0;
-    app.timerInt = setInterval(function () {
-      var left = app.deadline - Date.now();
-      fill.style.width = Math.max(0, left / total * 100) + '%';
-      if (app.view.actor === app.view.me && left < 6000 && left > 0 && Math.ceil(left / 1000) !== lastTick) { lastTick = Math.ceil(left / 1000); S.play('tick'); }
-      if (left <= 0) { clearInterval(app.timerInt); bar.classList.add('hidden'); }
-    }, 200);
+    if (app.timerInt) return;
+    var clock = app.clockEl;
+    if (!clock) {
+      clock = app.clockEl = document.createElement('div');
+      clock.className = 'turn-clock';
+      clock.innerHTML = '<svg viewBox="0 0 100 100"><circle class="tc-track" cx="50" cy="50" r="46" pathLength="100"/><circle class="tc-fill" cx="50" cy="50" r="46" pathLength="100"/></svg><b class="tc-sec"></b>';
+    }
+    var fill = clock.querySelector('.tc-fill'), sec = clock.querySelector('.tc-sec');
+    var seen = null, total = 1, lastTick = 0;
+    function tick() {
+      var v = app.view, dl = clockDeadline();
+      var host = dl && v && v.actor != null && v.phase !== 'roundOver' && !v.gameOver ? clockHost(v.actor) : null;
+      if (!host) { if (clock.parentNode) clock.remove(); return; }
+      // the deadline also covers the animation before the turn; never show more than the limit
+      var limit = (+(v.options && v.options.turnTimer) || 0) * 1000;
+      if (dl !== seen) { seen = dl; total = limit || Math.max(1000, dl - Date.now()); }
+      if (clock.parentNode !== host) host.appendChild(clock);
+      var left = Math.min(total, Math.max(0, dl - Date.now())), used = 1 - left / total;
+      fill.style.strokeDashoffset = (100 - used * 100).toFixed(2);
+      fill.style.stroke = 'hsl(' + Math.round(130 * (1 - used)) + ', 90%, 55%)';
+      var s = Math.ceil(left / 1000);
+      sec.textContent = s;
+      clock.classList.toggle('urgent', left < 6000);
+      if (v.actor === v.me && left < 6000 && left > 0 && s !== lastTick) { lastTick = s; S.play('tick'); }
+    }
+    tick();
+    app.timerInt = setInterval(tick, 100);
   }
 
   function logEvents(events) {
@@ -829,6 +1175,7 @@
   /* round end */
   function showRoundEnd(v) {
     if (!v || v.phase !== 'roundOver' || !v.roundResult) return;
+    if (v.engine === 'patti') return showPattiRoundEnd(v);
     var rr = v.roundResult;
     var pts = v.options.scoreMode === 'points';
     var rows = v.players.slice().sort(function (a, b) { return b.score - a.score; }).map(function (p) {
@@ -875,8 +1222,44 @@
   /* ------------------------------------------------------------------ */
   /* rules / settings / menu                                             */
   /* ------------------------------------------------------------------ */
+  function showPattiRoundEnd(v) {
+    var rr = v.roundResult;
+    var winners = rr.winners || [rr.winner];
+    var rows = v.players.slice().sort(function (a, b) { return b.score - a.score; }).map(function (p) {
+      var won = winners.indexOf(p.id) >= 0;
+      var d = rr.delta && rr.delta[p.id];
+      return '<tr class="' + (won ? 'won' : '') + '"><td><span class="name-cell">' + av(p.avatar, 'sm') + ' ' + esc(p.name) + (won ? ' ' + ic('champion', 'gold') : '') + '</span></td>' +
+        '<td>' + esc(p.handName || p.tag || '') + '</td><td>' + (d ? '+' + d : '') + '</td><td><b>' + (v.chips ? '◉ ' : '') + p.score + '</b></td></tr>';
+    }).join('');
+    var champ = v.players[rr.champion];
+    var title = rr.gameOver ? (champ.id === v.me ? 'You win the game!' : champ.name + ' wins the game!') : rr.title;
+    var online = app.session && app.session.type === 'online';
+    var isHost = online && app.session.room && app.session.room.isHost;
+    var btns;
+    if (rr.gameOver) {
+      btns = !online ? '<button class="btn big primary" data-x="again">Play again</button>' : (isHost ? '<button class="btn big primary" data-x="rematch">Rematch</button><button class="btn big" data-x="lobby">Back to lobby</button>' : '<p class="hint">Waiting for the host…</p>');
+      btns += '<button class="btn big ghost" data-x="menu">Main menu</button>';
+    } else btns = '<button class="btn big primary" data-x="next">Next round ' + ic('arrow-right-01') + '</button><button class="btn ghost" data-x="close">View table</button>';
+    var card = modal('<h2 class="re-title">' + esc(title) + '</h2>' + (rr.gameOver ? '<p class="hint">' + esc(rr.title) + '</p>' : '') +
+      '<table class="score-table"><thead><tr><th>Player</th><th></th><th>Round</th><th>' + (v.chips ? 'Chips' : 'Total') + '</th></tr></thead><tbody>' + rows + '</tbody></table>' +
+      (!rr.gameOver && v.rounds > 1 ? '<p class="hint">Round ' + v.round + ' of ' + v.rounds + '</p>' : '') +
+      '<div class="pr-btns">' + btns + '</div>', { id: 'roundEnd', dismiss: !rr.gameOver });
+    $$('[data-x]', card).forEach(function (b) {
+      b.onclick = function () {
+        var x = b.dataset.x;
+        closeModal();
+        if (x === 'next') act({ type: 'nextRound' });
+        else if (x === 'again') { var c = app.session.config; startLocal(c.variant, c.opts, c.seats); }
+        else if (x === 'rematch') app.net.send({ t: 'rematch' });
+        else if (x === 'lobby') app.net.send({ t: 'toLobby' });
+        else if (x === 'menu') quitToMenu();
+      };
+    });
+  }
+
   function openRules(variant) {
-    var ids = Object.keys(E.VARIANTS);
+    var ids = gamesOf(variant ? universeOf(variant) : (settings.universe === 'desi' ? 'desi' : 'uno'));
+    if (!variant) variant = ids[0];
     var card = modal('<div class="rules"><div class="rules-tabs">' + ids.map(function (id) { return '<button data-v="' + id + '">' + esc(E.VARIANTS[id].short) + '</button>'; }).join('') + '<button data-v="controls">Controls</button></div><div class="rules-body"></div><div class="pr-btns"><button class="btn" data-close>Close</button></div></div>', { cls: 'wide rules-modal' });
     function show(id) {
       $$('.rules-tabs button', card).forEach(function (b) { b.classList.toggle('active', b.dataset.v === id); });
@@ -886,7 +1269,7 @@
         return;
       }
       var R = Rules.variants[id], V = E.VARIANTS[id];
-      var back = id === 'dos' ? 'dos' : 'uno';
+      var back = backOf(id);
       var demos = (window.UNODemos && window.UNODemos[id]) || [];
       var cardDemo = {};
       demos.forEach(function (d, i) { if (d.card != null) cardDemo[d.card] = i; });
@@ -897,7 +1280,7 @@
         '<h3>The deck</h3><p>' + R.deck + '</p>' +
         '<h3>Setup</h3><ul>' + R.setup.map(function (x) { return '<li>' + x + '</li>'; }).join('') + '</ul>' +
         '<h3>Playing</h3><ol>' + R.turn.map(function (x) { return '<li>' + x + '</li>'; }).join('') + '</ol>' +
-        '<h3>Special cards</h3><div class="rule-cards">' + R.cards.map(function (c, ci) {
+        '<h3>' + (R.cardsTitle || 'Special cards') + '</h3><div class="rule-cards">' + R.cards.map(function (c, ci) {
           var di = cardDemo[ci];
           return '<div class="rc">' + cardImg(c[0], 'rc-img', back) + '<div><b>' + esc(c[1]) + '</b><p>' + c[2] + '</p>' +
             (di != null ? '<button class="rc-watch" data-demo="' + di + '">' + ic('play') + ' Watch</button>' : '') + '</div></div>';
@@ -931,6 +1314,7 @@
       '<label class="opt"><span>Animation speed</span><select data-k="anim"><option value="0.7">Relaxed</option><option value="1">Normal</option><option value="1.4">Fast</option><option value="2">Very fast</option></select></label>' +
       '<label class="opt"><span>CPU speed</span><select data-k="botSpeed"><option value="0.7">Slow</option><option value="1">Normal</option><option value="1.6">Fast</option></select></label>' +
       '<label class="opt"><span>Table</span><select data-k="theme"><option value="green">Green felt</option><option value="blue">Blue felt</option><option value="red">Casino red</option><option value="purple">Midnight</option><option value="wood">Wooden table</option></select></label>' +
+      '<label class="opt"><span>Desi card design</span><select data-k="desiDeck"><option value="noir">Noir gold</option><option value="theme">Match the hall theme</option><option value="indian">Indian ivory</option><option value="pro">Classic white</option></select></label>' +
       '<label class="opt"><input type="checkbox" data-k="hints"' + (s.hints ? ' checked' : '') + '><span>Highlight playable cards</span></label>' +
       '<label class="opt"><input type="checkbox" data-k="sortHand"' + (s.sortHand ? ' checked' : '') + '><span>Sort my hand by colour</span></label>' +
       '</div><div class="pr-btns"><button class="btn primary" data-close>Done</button></div>');
@@ -1057,7 +1441,9 @@
     }).join('');
     $$('[data-rm]', seats).forEach(function (b) { b.onclick = function () { app.net.send({ t: 'removeSeat', index: +b.dataset.rm }); }; });
     var sel = $('#lobbyVariantSel');
-    if (!sel.options.length) sel.innerHTML = Object.keys(E.VARIANTS).map(function (id) { return '<option value="' + id + '">' + esc(E.VARIANTS[id].name) + '</option>'; }).join('');
+    if (!sel.options.length) sel.innerHTML = [['uno', 'UNO'], ['desi', 'Desi Patti']].map(function (g) {
+      return '<optgroup label="' + g[1] + '">' + gamesOf(g[0]).map(function (id) { return '<option value="' + id + '">' + esc(E.VARIANTS[id].name) + '</option>'; }).join('') + '</optgroup>';
+    }).join('');
     sel.value = room.variant;
     if (room.isHost) buildOptForm($('#lobbyOpts'), room.variant, room.opts, function (k, v) { var o = {}; o[k] = v; app.net.send({ t: 'setOpts', opts: o }); });
   }

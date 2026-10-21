@@ -228,5 +228,95 @@
       ] }
     ]
   };
+  /* ================= Desi Patti ================= */
+  var P4 = { you: 4, left: 4, top: 4, right: 4 };
+  D.bhabhi = [
+    { patti: true, title: 'Everyone follows suit', steps: [
+      ['counts', P4], ['hand', ['2H', '9S', 'KD', '5C']], ['turn', 'left'], ['cap', 'Leo leads the <b>Ace of Spades</b>. Everyone must follow with a spade.'],
+      ['trick', 'left', 'AS'], ['turn', 'top'], ['trick', 'top', '4S'], ['turn', 'right'], ['trick', 'right', 'JS'], ['turn', 'you'], ['trick', 'you', 1],
+      ['cap', 'All four followed suit - the trick goes <b>out</b> of the game.'], ['collect', 'out'], ['turn', 'left'], ['cap', 'Leo had the highest spade, so Leo leads again.']
+    ] },
+    { patti: true, title: 'Thulla! Someone picks up', steps: [
+      ['counts', P4], ['hand', ['2H', '9C', 'KD', '5C']], ['turn', 'left'], ['trick', 'left', '8S'], ['turn', 'top'], ['trick', 'top', 'QS'],
+      ['turn', 'right'], ['cap', 'Kai has no spades left, so he throws any card - a <b>thulla</b>!'], ['trick', 'right', 'AH'], ['bubble', 'right', 'THULLA!', 'red'],
+      ['cap', 'The trick stops. Mia played the highest spade, so <b>Mia picks up all the cards</b>.'], ['collect', 'top'], ['turn', 'top'], ['cap', 'Mia leads the next trick.']
+    ] },
+    { patti: true, title: 'Safe - and the Bhabhi', steps: [
+      ['counts', { you: 1, left: 0, top: 3, right: 0 }], ['hand', ['6D']], ['turn', 'top'], ['trick', 'top', '3D'], ['turn', 'you'], ['trick', 'you', 0],
+      ['collect', 'out'], ['bubble', 'you', 'SAFE!', 'uno'], ['cap', 'You played your last card and the trick went out - you are <b>safe</b>.'],
+      ['banner', 'BHABHI!', 'bad'], ['cap', 'Mia is the last one holding cards - she is the <b>Bhabhi</b>!']
+    ] }
+  ];
+  D.bluff = [
+    { patti: true, title: 'Claim a rank', steps: [
+      ['counts', { you: 5, left: 6, top: 6, right: 6 }], ['hand', ['KH', 'KS', '4D', '9C', '2H']], ['turn', 'you'],
+      ['cap', 'Start a pile: put cards face-down and claim a rank.'], ['facedown', 'you', 'Two Kings'], ['facedown', 'you', 'Two Kings'],
+      ['turn', 'left'], ['cap', 'Leo must add "Kings" too - or pass, or call Bluff.'], ['facedown', 'left', 'One King'], ['turn', 'top'], ['bubble', 'top', 'Pass', 'dark']
+    ] },
+    { patti: true, title: 'Calling a bluff', steps: [
+      ['counts', { you: 5, left: 6, top: 6, right: 6 }], ['turn', 'left'], ['facedown', 'left', 'Three Queens'], ['turn', 'top'], ['bubble', 'top', 'BLUFF!', 'red'],
+      ['reveal', '7C', false], ['cap', 'Leo\'s card is a 7 - he lied! <b>Leo picks up the whole pile.</b>'], ['pickupPile', 'left'],
+      ['cap', 'If the cards had really been Queens, Mia would have picked up instead.']
+    ] }
+  ];
+  D.seep = [
+    { patti: true, dos: true, two: true, title: 'Capture by value', steps: [
+      ['counts', { you: 4, top: 4 }], ['center', ['4H', '5C', '9D', '2S']], ['hand', ['9S', 'KH', '7D', '3C']], ['turn', 'you'],
+      ['cap', 'Play a 9: it captures every group adding up to 9 - <b>4 + 5</b> and the <b>9</b>.'], ['match', 2, [0]], ['take', [0, 1, 2]],
+      ['label', 'Captured 4+5 and 9'], ['clear', []], ['cap', 'Spades and the 10♦ are worth points - the 9♠ alone is 9 points!']
+    ] },
+    { patti: true, dos: true, two: true, title: 'Build a house', steps: [
+      ['counts', { you: 4, top: 4 }], ['center', ['6H', '2C']], ['hand', ['5D', 'JS', 'QC', '8H']], ['turn', 'you'],
+      ['cap', 'Put your 5 on the 6: a <b>house of 11</b>. You hold the Jack (11) to take it later.'], ['match', 0, [0], 'House of 11'],
+      ['turn', 'top'], ['cap', 'Next turn, capture your house with the Jack - or make it <b>pakka</b> by adding another 11.']
+    ] },
+    { patti: true, dos: true, two: true, title: 'Seep! (sweep)', steps: [
+      ['counts', { you: 3, top: 3 }], ['center', ['3D', '7S']], ['hand', ['10H', 'QD', '4C']], ['turn', 'you'],
+      ['cap', 'The floor holds 3 + 7 = 10. Play your 10 and take <b>everything</b>...'], ['match', 0, [0]], ['take', [0, 1]], ['clear', []], ['banner', 'SEEP! +50', 'good'],
+      ['cap', 'Clearing the whole floor is a <b>seep</b>: 50 bonus points.']
+    ] }
+  ];
+  D.sevens = [
+    { patti: true, title: 'Build out from the sevens', steps: [
+      ['counts', { you: 4, left: 5, top: 5, right: 5 }], ['gridSet', ['7H', '7S', '8S', '6H']], ['hand', ['5H', '9S', 'KD', '7D']], ['turn', 'you'],
+      ['cap', 'Rows grow from each 7. You may play the <b>5♥</b> (next to 6♥), the <b>9♠</b> (next to 8♠) or the <b>7♦</b> to open diamonds.'],
+      ['bad', 2], ['cap', 'K♦ can\'t go yet - diamonds aren\'t open and it isn\'t next in line.'], ['grid', 'you', '7D'],
+      ['turn', 'left'], ['grid', 'left', '8D'], ['turn', 'top'], ['bubble', 'top', 'Pass', 'dark'], ['cap', 'No card fits? You must pass.']
+    ] }
+  ];
+  D.gadha = [
+    { patti: true, title: 'Pull a card, throw pairs', steps: [
+      ['counts', { you: 3, left: 4, top: 3, right: 3 }], ['hand', ['7H', 'KS', '2C']], ['turn', 'you'],
+      ['cap', 'Pull a card from your neighbour\'s hand without looking...'], ['steal', 'left', '7D'],
+      ['cap', '7♦ matches your 7♥ - same rank, same colour. Throw the <b>pair</b> away!'], ['pairOut', [0, 3]],
+      ['cap', 'Empty your hand to be safe. Whoever is left holding the odd card is the <b>Gadha</b>!']
+    ] }
+  ];
+  D.teenpatti = [
+    { patti: true, title: 'Blind, see, chaal & pack', steps: [
+      ['counts', { you: 3, left: 3, top: 3, right: 3 }], ['cap', 'Everyone pays the boot into the pot and gets 3 cards, face-down.'],
+      ['chips', 'you', 10], ['chips', 'left', 10], ['chips', 'top', 10], ['chips', 'right', 10], ['turn', 'left'],
+      ['cap', 'Blind players bet the stake without looking...'], ['chips', 'left', 10], ['turn', 'top'], ['bubble', 'top', 'Seen', 'dark'],
+      ['cap', '...seen players pay double (chaal).'], ['chips', 'top', 20], ['turn', 'right'], ['bubble', 'right', 'Pack', 'red'], ['cap', 'Pack to fold. Last one standing - or the best hand at the show - wins the pot.']
+    ] },
+    { patti: true, title: 'Hand rankings', steps: [
+      ['hand', ['AS', 'AH', 'AD']], ['label', 'Trail (trio) - best'], ['wait', 1.4],
+      ['label', 'Pure sequence &gt; Sequence &gt; Colour &gt; Pair &gt; High card'], ['wait', 1.6], ['cap', 'A-A-A beats everything. A-K-Q of one suit is the best pure sequence.']
+    ] }
+  ];
+  D.courtpiece = [
+    { patti: true, title: 'Trump cuts the trick', steps: [
+      ['counts', { you: 5, left: 5, top: 5, right: 5 }], ['hand', ['3H', 'QC', '9D', 'AS', '5H']], ['label', 'Trump: ♥ Hearts'], ['turn', 'left'],
+      ['cap', 'You and Mia (opposite) are partners. Leo leads clubs.'], ['trick', 'left', 'KC'], ['turn', 'top'], ['trick', 'top', '4C'],
+      ['turn', 'right'], ['trick', 'right', 'AC'], ['turn', 'you'], ['cap', 'You have a club, so you must follow suit.'], ['trick', 'you', 1],
+      ['cap', 'Kai\'s Ace of clubs wins - no trump was played.'], ['collect', 'right']
+    ] },
+    { patti: true, title: 'Cutting with a trump', steps: [
+      ['counts', { you: 4, left: 4, top: 4, right: 4 }], ['hand', ['3H', '9D', 'AS', '5H']], ['label', 'Trump: ♥ Hearts'], ['turn', 'left'],
+      ['trick', 'left', 'KC'], ['turn', 'top'], ['trick', 'top', '4C'], ['turn', 'right'], ['trick', 'right', 'AC'], ['turn', 'you'],
+      ['cap', 'No clubs in your hand - <b>cut</b> with your smallest trump!'], ['trick', 'you', 0], ['bubble', 'you', 'Cut!', 'uno'], ['collect', 'you'],
+      ['cap', 'First team to 7 tricks wins the hand. All 7 in a row is a <b>Kot</b>!']
+    ] }
+  ];
   window.UNODemos = D;
 })();

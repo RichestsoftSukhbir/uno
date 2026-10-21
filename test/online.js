@@ -34,14 +34,14 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   const mem = { a: {}, b: {} };
   let steps = 0;
   const t0 = Date.now();
-  while (Date.now() - t0 < 60000) {
+  while (Date.now() - t0 < (+process.env.TIMEOUT || 60000)) {
     await wait(60);
     for (const [c, k] of [[a, 'a'], [b, 'b']]) {
       const v = c.view;
       if (!v) continue;
       if (v.gameOver) continue;
-      // hidden information check: never see other players' faces mid-round
-      if (v.phase !== 'roundOver') for (const p of v.players) if (p.id !== v.me) for (const card of p.hand) if (card.a && v.variant !== 'flip') throw new Error('LEAK: saw opponent card');
+      // hidden information check: never see other players' faces mid-round (a Teen Patti show reveals on purpose)
+      if (v.phase !== 'roundOver' && v.phase !== 'showdown') for (const p of v.players) if (p.id !== v.me) for (const card of p.hand) if (card.a && v.variant !== 'flip') throw new Error('LEAK: saw opponent card');
       const act = B.decide(v, mem[k]);
       if (act && (v.actor === v.me || act.type === 'nextRound' || act.type === 'uno')) { c.send({ t: 'act', action: act }); steps++; c.view = null; }
     }

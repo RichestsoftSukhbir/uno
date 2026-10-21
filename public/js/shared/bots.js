@@ -258,6 +258,11 @@
   function decide(v, mem, rnd) {
     mem = mem || {};
     if (!v || !v.legal || !v.legal.length) return null;
+    if (v.engine === 'patti') {
+      var PT = typeof module === 'object' && module.exports ? require('./patti.js') : (typeof self !== 'undefined' ? self : this).UNOPatti;
+      if (v.phase === 'roundOver') return { type: 'nextRound', key: 'next' };
+      return PT.decide(v, mem, rnd);
+    }
     return v.engine === 'dos' ? decideDos(v, mem, rnd) : decideUno(v, mem, rnd);
   }
 

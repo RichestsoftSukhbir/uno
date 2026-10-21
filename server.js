@@ -13,6 +13,7 @@ const crypto = require('crypto');
 const WebSocket = require('ws');
 const E = require('./public/js/shared/engine.js');
 const { Controller } = require('./public/js/shared/controller.js');
+require('./public/js/shared/patti.js'); // registers the Desi games
 
 const PORT = +process.env.PORT || 3000;
 const PUBLIC = path.join(__dirname, 'public');
@@ -114,7 +115,7 @@ function startGame(room) {
       if (s.kind === 'bot') return true;
       return !s.connected && Date.now() - (s.leftAt || 0) > 10000;
     },
-    turnTimer: +room.opts.turnTimer || 0,
+    turnTimer: +(room.game.o && room.game.o.turnTimer != null ? room.game.o.turnTimer : room.opts.turnTimer) || 0,
     onTimeout: pid => systemChat(room, room.seats[pid].name + ' ran out of time - auto move.'),
     onUpdate: (events, meta) => {
       broadcastGame(room, events, meta);
@@ -247,10 +248,10 @@ function handle(ss, msg) {
     case 'start':
       if (!isHost || room.state === 'playing') return;
       if (room.seats.length < 2) return send(ss.ws, { t: 'error', msg: 'Need at least 2 players (add a CPU)' });
-      return startGame(room);
+      try { return startGame(room); } catch (e) { room.state = 'lobby'; return send(ss.ws, { t: 'error', msg: e.message }); }
     case 'rematch':
       if (!isHost || !room.game || !room.game.gameOver) return;
-      return startGame(room);
+      try { return startGame(room); } catch (e) { return send(ss.ws, { t: 'error', msg: e.message }); }
     case 'toLobby':
       if (!isHost) return;
       if (room.controller) room.controller.destroy();

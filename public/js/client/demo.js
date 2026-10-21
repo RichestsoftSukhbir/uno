@@ -20,6 +20,9 @@
   function face(code) {
     if (!code || code === 'back') return 'back';
     if (typeof code !== 'string') return code;
+    // standard deck codes for the Desi games: 'AS', '10D', 'KH'...
+    var m = /^(10|[2-9AJQK])([SHDC])$/.exec(code);
+    if (m) return { s: m[2], r: m[1] };
     var liar = code.slice(-1) === '*';
     var f = { c: COL[code[0]], v: code.slice(1).replace('*', '') };
     if (liar) f.l = 1;
@@ -76,6 +79,8 @@
     var two = !!this.demo.two;
     this.seatsOn = two ? ['you', 'top'] : ORDER.slice();
     this.isDos = !!this.demo.dos;
+    this.backKind = this.demo.patti ? 'patti' : (this.isDos ? 'dos' : 'uno');
+    this.stage.classList.toggle('patti', !!this.demo.patti);
     el('div', 'd-felt', st);
     // direction ring: arrows sit exactly on the ellipse, pointing along it (clockwise)
     var RX = 100, RY = 50, arrows = '';
@@ -88,7 +93,7 @@
     this.ring = el('div', 'd-ring', st, '<svg viewBox="-110 -60 220 120"><ellipse rx="' + RX + '" ry="' + RY + '" class="d-ring-line"/>' + arrows + '</svg>');
     this.ringLine = this.ring.querySelector('.d-ring-line');
     this.ringFlow = gsap.to(this.ringLine, { attr: { 'stroke-dashoffset': -140 }, duration: 4, ease: 'none', repeat: -1 });
-    this.ring.style.display = this.isDos ? 'none' : '';
+    this.ring.style.display = this.isDos || this.demo.patti ? 'none' : '';
     this.halo = el('div', 'd-halo', st);
     this.glow = el('div', 'd-glow', st);
     this.seat = {};
@@ -103,7 +108,7 @@
       if (k !== 'you') {
         var fan = el('div', 'd-fan d-fan-' + k, st);
         fan.style.left = s.x + 'px'; fan.style.top = (s.y + (k === 'top' ? 26 : -46)) + 'px';
-        for (var i = 0; i < 3; i++) { var c = el('i', '', fan); c.style.backgroundImage = Cards.faceUrl('back', { back: self.isDos ? 'dos' : 'uno' }); c.style.transform = 'rotate(' + ((i - 1) * 14) + 'deg)'; }
+        for (var i = 0; i < 3; i++) { var c = el('i', '', fan); c.style.backgroundImage = Cards.faceUrl('back', { back: self.backKind }); c.style.transform = 'rotate(' + ((i - 1) * 14) + 'deg)'; }
         self.seat[k].fan = fan;
       }
     });
@@ -113,12 +118,17 @@
       this.deck = el('div', 'd-launcher', st, '<i></i>');
     } else {
       this.deck = el('div', 'd-deck', st);
-      for (var d = 0; d < 4; d++) { var g = el('i', '', this.deck); g.style.backgroundImage = Cards.faceUrl('back', { back: this.isDos ? 'dos' : 'uno' }); g.style.transform = 'translate(' + (-d) + 'px,' + (-d * 1.5) + 'px)'; }
+      for (var d = 0; d < 4; d++) { var g = el('i', '', this.deck); g.style.backgroundImage = Cards.faceUrl('back', { back: this.backKind }); g.style.transform = 'translate(' + (-d) + 'px,' + (-d * 1.5) + 'px)'; }
     }
     this.deck.style.left = this.deckPos.x + 'px'; this.deck.style.top = this.deckPos.y + 'px';
+    if (this.demo.patti && !this.demo.deck) this.deck.style.display = 'none';
     this.fx = el('div', 'd-fx', st);
     this.cap.innerHTML = '&nbsp;';
     this.pile = [];
+    this.trickCards = [];
+    this.pot = null;
+    this.lbl = null;
+    this.pairs = 0;
     this.hand = {};
     this.handOrder = [];
     this.center = [];
@@ -130,7 +140,7 @@
   D.card = function (f, x, y, up) {
     var c = el('div', 'd-card', this.stage, '<div class="d-in"><i class="d-f"></i><i class="d-b"></i></div>');
     var inner = c.firstChild;
-    var back = this.isDos ? 'dos' : 'uno';
+    var back = this.backKind;
     var fc = face(f);
     inner.children[0].style.backgroundImage = Cards.faceUrl(fc === 'back' ? 'back' : fc, { back: back });
     inner.children[1].style.backgroundImage = Cards.faceUrl('back', { back: back });
@@ -140,7 +150,7 @@
     return c;
   };
   D.setFront = function (c, f) {
-    c.inner.children[0].style.backgroundImage = Cards.faceUrl(face(f), { back: this.isDos ? 'dos' : 'uno' });
+    c.inner.children[0].style.backgroundImage = Cards.faceUrl(face(f), { back: this.backKind });
   };
   D.handPos = function (i, n) {
     var sp = Math.min(46, 300 / Math.max(1, n));
@@ -536,7 +546,7 @@
       var keep = [];
       var j = 0;
       this.center.forEach(function (s) {
-        if (!s.matched.length) { keep.push(s); return; }
+        if (!s.matched.length && !s.taken) { keep.push(s); return; }
         [s.card].concat(s.matched).forEach(function (c) {
           tl.to(c, { x: self.pilePos.x - CW / 2, y: self.pilePos.y - CH / 2, rotation: (j % 3 - 1) * 15, duration: 0.45, ease: 'power2.inOut' }, at + j * 0.06);
           j++;
@@ -547,6 +557,141 @@
       (refill || []).forEach(function (f, i) { self.addSlot(f, false, tl, t + i * 0.2); });
       this.layoutCenter(tl, t);
       return 0.8 + j * 0.06 + (refill || []).length * 0.2;
+    },
+    take: function (tl, at, slots) {
+      var self = this;
+      slots.forEach(function (i) { var sl = self.center[i]; sl.taken = true; tl.to(sl.card, { y: '-=10', duration: 0.2, yoyo: true, repeat: 1 }, at); });
+      return 0.45;
+    },
+    /* ---- Desi games ---- */
+    trick: function (tl, at, k, f) {
+      var c;
+      var sp = this.seatXY(k);
+      var tx = 280 + (sp.x - 280) * 0.42, ty = 150 + (sp.y - 150) * 0.42;
+      if (k === 'you') {
+        var id = this.handOrder[f];
+        c = this.hand[id];
+        this.handOrder.splice(f, 1);
+        this.layoutHand(tl, at + 0.1);
+        this.setCount(tl, 'you', -1, at);
+      } else {
+        c = this.card(f, sp.x, sp.y, false);
+        gsap.set(c, { opacity: 0 });
+        tl.set(c, { opacity: 1 }, at);
+        this.setCount(tl, k, -1, at);
+      }
+      this.trickCards = (this.trickCards || []).concat([c]);
+      tl.set(c, { zIndex: 30 + this.trickCards.length }, at);
+      tl.to(c, { x: tx - CW / 2, y: ty - CH / 2, rotation: (Math.random() - 0.5) * 24, scale: 0.9, duration: 0.5, ease: 'power3.out' }, at);
+      tl.to(c.inner, { rotationY: 0, duration: 0.4 }, at);
+      return 0.6;
+    },
+    collect: function (tl, at, dest) {
+      var self = this;
+      var cards = this.trickCards || [];
+      this.trickCards = [];
+      var p = dest === 'out' ? { x: 470, y: 250 } : this.seatXY(dest);
+      cards.forEach(function (c, i) {
+        tl.to(c, { x: p.x - CW / 2, y: p.y - CH / 2, rotation: 0, scale: 0.6, duration: 0.5, ease: 'power2.inOut' }, at + i * 0.06);
+        if (dest === 'out') tl.to(c.inner, { rotationY: 180, duration: 0.3 }, at + i * 0.06);
+        tl.to(c, { opacity: dest === 'out' ? 0.9 : 0, duration: 0.2 }, at + 0.5 + i * 0.06);
+      });
+      if (dest !== 'out') this.setCount(tl, dest, cards.length, at + 0.5);
+      return 0.8 + cards.length * 0.06;
+    },
+    pickupPile: function (tl, at, k) {
+      var p = this.seatXY(k);
+      var cards = this.pile.splice(0);
+      cards.forEach(function (c, i) {
+        tl.to(c, { x: p.x - CW / 2, y: p.y - CH / 2, rotation: 0, scale: 0.6, duration: 0.5, ease: 'power2.inOut' }, at + i * 0.05);
+        tl.to(c, { opacity: 0, duration: 0.2 }, at + 0.5 + i * 0.05);
+      });
+      this.setCount(tl, k, cards.length, at + 0.5);
+      return 0.8 + cards.length * 0.05;
+    },
+    chips: function (tl, at, k, amount) {
+      var self = this;
+      if (!this.pot) {
+        this.pot = el('div', 'd-pot', this.stage, '<i></i><i></i><i></i><b>0</b>');
+        this.potAmt = 0;
+      }
+      var p = SEATS[k];
+      for (var i = 0; i < 4; i++) {
+        var ch = el('i', 'd-chip', this.fx);
+        ch.style.left = p.x + 'px'; ch.style.top = p.y + 'px';
+        gsap.set(ch, { opacity: 0 });
+        tl.set(ch, { opacity: 1 }, at + i * 0.05);
+        tl.to(ch, { left: 280 + (Math.random() - 0.5) * 20, top: 140 + (Math.random() - 0.5) * 10, duration: 0.5, ease: 'power2.inOut' }, at + i * 0.05);
+        tl.to(ch, { opacity: 0, duration: 0.2 }, at + 0.6 + i * 0.05);
+      }
+      tl.call(function () { self.potAmt += amount; self.pot.querySelector('b').textContent = self.potAmt; gsap.fromTo(self.pot, { scale: 1.2 }, { scale: 1, duration: 0.3 }); }, null, at + 0.55);
+      this.float(tl, at, k, '-' + amount, 'plus');
+      return 0.8;
+    },
+    grid: function (tl, at, k, f) {
+      var fc = face(f);
+      var order = ['S', 'H', 'D', 'C'];
+      var r = fc.r === 'A' ? 1 : fc.r === 'J' ? 11 : fc.r === 'Q' ? 12 : fc.r === 'K' ? 13 : +fc.r;
+      var gx = 280 + (r - 7) * 24, gy = 92 + order.indexOf(fc.s) * 38;
+      var sp = this.seatXY(k);
+      var c = this.card(fc, sp.x, sp.y, false);
+      gsap.set(c, { opacity: 0, zIndex: 25 + r });
+      tl.set(c, { opacity: 1 }, at);
+      tl.to(c, { x: gx - CW / 2, y: gy - CH / 2, scale: 0.48, rotation: 0, duration: 0.55, ease: 'power3.out' }, at);
+      tl.to(c.inner, { rotationY: 0, duration: 0.4 }, at);
+      if (k !== 'you') this.setCount(tl, k, -1, at);
+      return 0.65;
+    },
+    gridSet: function (tl, at, codes) {
+      var self = this;
+      codes.forEach(function (f) {
+        var fc = face(f);
+        var order = ['S', 'H', 'D', 'C'];
+        var r = fc.r === 'A' ? 1 : fc.r === 'J' ? 11 : fc.r === 'Q' ? 12 : fc.r === 'K' ? 13 : +fc.r;
+        var c = self.card(fc, 280 + (r - 7) * 24, 92 + order.indexOf(fc.s) * 38, true);
+        gsap.set(c, { scale: 0.48, zIndex: 25 + r });
+      });
+      return 0;
+    },
+    steal: function (tl, at, k, f) {
+      var sp = this.seatXY(k);
+      var c = this.card(f, sp.x, sp.y, false);
+      var id = this.handSeq++;
+      this.hand[id] = c;
+      this.handOrder.push(id);
+      c.classList.add('mine');
+      gsap.set(c, { opacity: 0, scale: 0.7, zIndex: 40 + id });
+      tl.set(c, { opacity: 1 }, at);
+      tl.to(c, { y: '-=24', duration: 0.2 }, at);
+      tl.to(c, { scale: 1, duration: 0.4 }, at + 0.2);
+      tl.to(c.inner, { rotationY: 0, duration: 0.35 }, at + 0.3);
+      this.layoutHand(tl, at + 0.2);
+      this.setCount(tl, k, -1, at);
+      this.setCount(tl, 'you', 1, at + 0.4);
+      return 0.8;
+    },
+    pairOut: function (tl, at, idxs) {
+      var self = this;
+      var ids = idxs.map(function (i) { return self.handOrder[i]; });
+      this.handOrder = this.handOrder.filter(function (id) { return ids.indexOf(id) < 0; });
+      this.pairs = (this.pairs || 0) + 1;
+      ids.forEach(function (id, j) {
+        var c = self.hand[id];
+        tl.to(c, { x: 410 + j * 14 - CW / 2, y: 236 - CH / 2 - self.pairs * 3, rotation: -10 + j * 18, scale: 0.6, duration: 0.5, ease: 'power3.out' }, at + j * 0.1);
+        self.setCount(tl, 'you', -1, at + j * 0.1);
+      });
+      this.layoutHand(tl, at + 0.3);
+      this.float(tl, at + 0.4, 'you', 'Pair!', 'claim');
+      return 0.9;
+    },
+    label: function (tl, at, text) {
+      var self = this;
+      tl.call(function () {
+        if (!self.lbl) self.lbl = el('div', 'd-label', self.stage);
+        self.lbl.innerHTML = text;
+        gsap.fromTo(self.lbl, { scale: 0.6, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.3, ease: 'back.out(2)' });
+      }, null, at);
+      return 0.4;
     },
     place: function (tl, at, idx) {
       var id = this.handOrder[idx];

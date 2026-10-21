@@ -77,17 +77,81 @@
     tick: function (t) { tone(t, 0.04, 1500, 'square', 0.05); }
   };
 
+  /* ---- themed sound packs for the Desi games ---- */
+  // Karplus-Strong plucked string - a sitar/santoor-like twang
+  function pluck(t, freq, dur, gain) {
+    var sr = ctx.sampleRate, len = Math.floor(sr * dur);
+    var buf = ctx.createBuffer(1, len, sr), d = buf.getChannelData(0);
+    var period = Math.max(2, Math.floor(sr / freq)), ring = new Float32Array(period);
+    for (var i = 0; i < period; i++) ring[i] = Math.random() * 2 - 1;
+    var idx = 0;
+    for (var k = 0; k < len; k++) {
+      var nx = (idx + 1) % period;
+      var v = ring[idx];
+      ring[idx] = 0.996 * 0.5 * (ring[idx] + ring[nx]);
+      d[k] = v;
+      idx = nx;
+    }
+    var src = ctx.createBufferSource(); src.buffer = buf;
+    var g = ctx.createGain(); g.gain.setValueAtTime(gain, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    var f = ctx.createBiquadFilter(); f.type = 'peaking'; f.frequency.value = freq * 3; f.gain.value = 6;
+    src.connect(f); f.connect(g); g.connect(master);
+    src.start(t); src.stop(t + dur);
+  }
+  // tabla: "dha" (bass bayan with a pitch bend) and "na/tin" (bright dayan ring)
+  function tablaBass(t, gain) { tone(t, 0.45, 150, 'sine', gain || 0.5, 70); noise(t, 0.04, 400, 1, 0.2); }
+  function tablaTin(t, gain, f) { tone(t, 0.22, f || 520, 'sine', gain || 0.22); tone(t, 0.12, (f || 520) * 2.7, 'sine', (gain || 0.22) * 0.4); noise(t, 0.02, 3000, 2, 0.15); }
+  function bell(t, gain) { [880, 1320, 2210].forEach(function (f, i) { tone(t, 1.6 - i * 0.3, f, 'sine', (gain || 0.12) / (i + 1)); }); }
+  var RAAG = [261.6, 293.7, 329.6, 392, 440, 523.3, 587.3]; // Sa Re Ga Pa Dha Sa' Re'
+
+  var PACKS = {
+    indian: {
+      turn: function (t) { tablaTin(t, 0.18, 600); tablaTin(t + 0.11, 0.14, 700); },
+      place: function (t) { FX.place(t); tablaBass(t, 0.18); },
+      shuffle: function (t) { FX.shuffle(t); tablaBass(t + 0.05, 0.3); tablaTin(t + 0.25, 0.15); tablaBass(t + 0.45, 0.3); },
+      win: function (t) { RAAG.forEach(function (f, i) { pluck(t + i * 0.12, f * 2, 1.4, 0.35); }); bell(t + 0.9, 0.12); },
+      lose: function (t) { [392, 349.2, 293.7, 261.6].forEach(function (f, i) { pluck(t + i * 0.2, f, 1.4, 0.3); }); tablaBass(t + 0.85, 0.5); },
+      color: function (t) { [523.3, 659.3, 784].forEach(function (f, i) { pluck(t + i * 0.07, f, 0.9, 0.3); }); },
+      challenge: function (t) { tablaBass(t, 0.45); tablaTin(t + 0.12, 0.2); tablaBass(t + 0.24, 0.45); },
+      thulla: function (t) { tablaBass(t, 0.6); tablaBass(t + 0.14, 0.5); tablaTin(t + 0.28, 0.25, 800); },
+      chip: function (t) { [1800, 2400].forEach(function (f, i) { tone(t + i * 0.04, 0.12, f, 'sine', 0.06); }); },
+      penalty: function (t) { tablaBass(t, 0.45); tablaBass(t + 0.18, 0.35); },
+      pop: function (t) { tablaTin(t, 0.18, 880); }
+    },
+    pro: {
+      turn: function (t) { tone(t, 0.12, 1046, 'sine', 0.08); },
+      shuffle: function (t) { FX.shuffle(t); },
+      win: function (t) { [523.3, 659.3, 784, 1046.5].forEach(function (f, i) { tone(t + i * 0.09, 0.5, f, 'sine', 0.1); }); },
+      lose: function (t) { [392, 330, 262].forEach(function (f, i) { tone(t + i * 0.15, 0.4, f, 'sine', 0.09); }); },
+      chip: function (t) { for (var i = 0; i < 3; i++) { tone(t + i * 0.05, 0.08, 2600 + Math.random() * 600, 'triangle', 0.05); noise(t + i * 0.05, 0.03, 5000, 3, 0.08); } },
+      thulla: function (t) { tone(t, 0.3, 220, 'triangle', 0.15, 140); },
+      challenge: function (t) { tone(t, 0.15, 440, 'triangle', 0.1); tone(t + 0.16, 0.25, 330, 'triangle', 0.1); }
+    }
+  };
+  FX.chip = function (t) { tone(t, 0.08, 2300, 'triangle', 0.06); noise(t, 0.03, 5000, 3, 0.08); };
+  FX.thulla = function (t) { FX.caught(t); };
+  var pack = null;
+  function setPack(name) { pack = PACKS[name] || null; }
+
   function play(name, delay) {
     if (!settings.on) return;
-    if (!ensure() || !FX[name]) return;
-    try { FX[name](ctx.currentTime + (delay || 0)); } catch (e) { /* ignore */ }
+    if (!ensure()) return;
+    var fn = (pack && pack[name]) || FX[name];
+    if (!fn) return;
+    try { fn(ctx.currentTime + (delay || 0)); } catch (e) { /* ignore */ }
   }
 
-  function say(text) {
+  // lang 'hi' speaks with an Indian (Hindi) voice when the device has one
+  function say(text, lang) {
     if (!settings.on || !settings.voice || !window.speechSynthesis) return;
     try {
       var u = new SpeechSynthesisUtterance(text);
       u.rate = 1.15; u.pitch = 1.2; u.volume = settings.volume;
+      var want = lang === 'hi' ? /^hi|en-IN/i : (pack === PACKS.indian ? /en-IN|^hi/i : null);
+      if (want) {
+        var vs = window.speechSynthesis.getVoices().filter(function (v) { return want.test(v.lang); });
+        if (vs.length) { u.voice = vs[0]; u.lang = vs[0].lang; } else if (lang === 'hi') u.lang = 'hi-IN';
+      }
       window.speechSynthesis.cancel();
       window.speechSynthesis.speak(u);
     } catch (e) { /* ignore */ }
@@ -98,5 +162,5 @@
     if (master) master.gain.value = settings.volume;
   }
 
-  window.UNOSound = { play: play, say: say, configure: configure, settings: settings };
+  window.UNOSound = { play: play, say: say, configure: configure, settings: settings, setPack: setPack };
 })();

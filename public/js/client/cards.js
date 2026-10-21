@@ -291,7 +291,17 @@
     return svg.replace(/<\/svg>$/, marks + '</svg>');
   }
 
+  // Desi games use a standard 52-card deck (pattiCards.js) in the current desi theme
+  var desiTheme = 'indian';
+  function setDesiTheme(t) { desiTheme = t === 'pro' ? 'pro' : 'indian'; }
+  // card design for the 52-card deck: 'noir' (black & gold), 'indian', 'pro', or 'theme' to follow the hall theme
+  var desiDeck = 'noir';
+  function setDesiDeck(d) { desiDeck = d; }
+  function deckStyle() { return desiDeck === 'theme' ? desiTheme : desiDeck; }
+
   function faceSvg(f, opts) {
+    if (f && f.s) return window.UNOPattiArt.face(f, deckStyle());
+    if ((!f || f === 'back') && opts && opts.back === 'patti') return window.UNOPattiArt.back(deckStyle());
     if (f && f.l) return liarMarks(faceSvg({ c: f.c, v: f.v }, opts), f);
     if (!f || f === 'back') return backFace(opts && opts.back);
     if (f === 'unknown-light') return unknownFlipFace(false);
@@ -303,6 +313,8 @@
 
   var cache = {};
   function faceKey(f, opts) {
+    if (f && f.s) return 'std:' + deckStyle() + ':' + f.r + f.s;
+    if ((!f || f === 'back') && opts && opts.back === 'patti') return 'pattiback:' + deckStyle();
     if (!f || typeof f === 'string') return (f || 'back') + ':' + ((opts && opts.back) || 'uno');
     return f.c + ':' + f.v + (f.l ? ':liar' : '');
   }
@@ -315,5 +327,5 @@
     return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(faceSvg(f, opts));
   }
 
-  window.UNOCards = { COLORS: COLORS, faceSvg: faceSvg, faceUrl: faceUrl, faceImg: faceImg, faceKey: faceKey };
+  window.UNOCards = { COLORS: COLORS, faceSvg: faceSvg, faceUrl: faceUrl, faceImg: faceImg, faceKey: faceKey, setDesiTheme: setDesiTheme, desiTheme: function () { return desiTheme; }, setDesiDeck: setDesiDeck, deckStyle: deckStyle };
 })();
