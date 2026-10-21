@@ -235,6 +235,7 @@
     this.trick = [];
     this.result = null;
     this.firstTrick = true;
+    this.voids = this.players.map(function () { return {}; }); // suits each player has been seen to lack (public)
     var order = this.dealAll(this.deck(1), this.dealer + 1);
     this.emit({ t: 'deal', order: order, dealer: this.dealer, round: this.round });
     this.dealer = (this.dealer + 1) % this.players.length;
@@ -266,6 +267,7 @@
     this.emit({ t: 'play', p: p, id: c.id, face: { s: c.s, r: c.r } });
     var thulla = led && c.s !== led;
     if (thulla) {
+      this.voids[p][led] = true;
       this.note(this.pname(p) + ' can\'t follow ' + SUIT_NAME[led] + ' - THULLA with ' + cname(c) + '!');
       this.emit({ t: 'thulla', p: p });
     }
@@ -286,7 +288,7 @@
     var res = this.result;
     var ids = this.trick.map(function (t) { return t.c.id; });
     if (res.pickup) {
-      this.trick.forEach(function (t) { self.players[res.winner].hand.push(t.c); });
+      this.trick.forEach(function (t) { self.players[res.winner].hand.push(t.c); delete self.voids[res.winner][t.c.s]; });
       this.sortHand(res.winner);
       this.emit({ t: 'pickup', p: res.winner, ids: ids });
       this.note(this.pname(res.winner) + ' played the highest card and picks up the ' + ids.length + ' cards.');
@@ -318,8 +320,10 @@
     var label = this.phase === 'collect' ? (res.pickup ? this.pname(res.winner) + ' picks up!' : 'Trick goes out') : (this.trick.length ? 'Follow ' + SUIT_NAME[this.trick[0].c.s] : '');
     var zones = [trickZone(this, label), { id: 'out', type: 'pile', pos: 'side', faceUp: false, label: this.outPile.length ? 'Out · ' + this.outPile.length : '', cards: this.outPile.slice(-8).map(function (c) { return { id: c.id, a: null, b: 'back' }; }) }];
     var led = this.trick.length ? this.trick[0].c.s : null;
+    var voids = this.voids.map(function (v) { return Object.keys(v); });
     return this.baseView(viewer, {
       zones: zones,
+      voids: voids,
       status: this.statusFor(viewer, this.firstTrick && !this.trick.length ? 'Lead with the Ace of Spades' : (led ? 'Your turn - follow ' + SYM[led] + ' if you can' : 'Your lead - play any card'), 'is playing…')
     });
   };
@@ -681,10 +685,12 @@
     live.forEach(function (p) { p.score -= boot; self.pot += boot; });
     this.emit({ t: 'deal', order: order, dealer: this.dealer, round: this.round });
     this.emit({ t: 'boot', amount: boot, players: live.map(function (p) { return p.id; }) });
-    this.current = this.next(this.dealer, function (pl) { return !pl.out; });
     this.dealer = (this.dealer + 1) % this.players.length;
     this.phase = 'bet';
     this.note('Round ' + this.round + ' - boot ' + boot + ' each, pot ' + this.pot + '.');
+    // the boot can leave someone on exactly 0 chips: they're all in from the start
+    if (live.filter(function (pl) { return pl.score > 0; }).length <= 1) return this.forceShow('everyone still in is all in');
+    this.current = this.next(this.dealer - 1, function (pl) { return !pl.out && pl.score > 0; });
   };
   TP.live = function () { return this.players.filter(function (p) { return !p.out && p.tag !== 'PACKED'; }); };
   TP.costs = function (p) {
@@ -726,7 +732,9 @@
     var live = this.live();
     if (live.length === 1) return this.award([live[0].id], 'everyone else packed');
     if (this.pot >= (+this.o.potLimit || 1e9)) return this.forceShow('the pot limit was reached');
-    this.current = this.next(p, function (pl) { return !pl.out && pl.tag !== 'PACKED'; });
+    // players with no chips left are all in and sit the betting out; with nobody left to bet against, show
+    if (live.filter(function (pl) { return pl.score > 0; }).length <= 1) return this.forceShow('everyone still in is all in');
+    this.current = this.next(p, function (pl) { return !pl.out && pl.tag !== 'PACKED' && pl.score > 0; });
   };
   TP.on_see = function (p) {
     this.players[p].seen = true;
@@ -1231,13 +1239,31 @@
       case 'bhabhi': {
         var plays = byType.play;
         var led = trick && trick.cards.length ? trick.cards[0].cv.a.s : null;
+        var voids = v.voids || [];
+        var isVoid = function (pid, suit) { return (voids[pid] || []).indexOf(suit) >= 0; };
+        var n = v.players.length;
+        var played = {};
+        (trick ? trick.cards : []).forEach(function (t) { played[t.p] = true; });
+        // players still to play in this trick, in turn order
+        var after = [];
+        for (var k = 1; k < n; k++) { var q = (v.me + k) % n; if (!v.players[q].out && !played[q]) after.push(q); }
+        var others = v.players.filter(function (pl) { return pl.id !== v.me && !pl.out; }).map(function (pl) { return pl.id; });
+        var inSuit = function (s) { return me.hand.filter(function (c) { return c.a && c.a.s === s; }).length; };
         return pickBy(plays, function (a) {
           var f = face(v, a.cardId);
           var r = hi(f.r);
-          if (!led) return -r + rnd() * noise;                       // lead low
+          if (!led) {
+            // lead low, from a short suit (so I can run out of it and thulla later),
+            // and never into a suit somebody has already shown they lack
+            var danger = others.some(function (q) { return isVoid(q, f.s); });
+            return -r - inSuit(f.s) * 1.5 - (danger ? 40 + r : 0) + rnd() * noise;
+          }
           if (f.s !== led) return r + rnd() * noise;                  // thulla: dump the biggest card
           var top = 0;
           trick.cards.forEach(function (t) { if (t.cv.a.s === led) top = Math.max(top, hi(t.cv.a.r)); });
+          var thullaComing = after.some(function (q) { return isVoid(q, led); });
+          if (!after.length) return r + rnd() * noise;                 // last to follow: the trick goes out, so shed my biggest
+          if (thullaComing) return (r < top ? 20 + r : -3 * r) + rnd() * noise; // someone will cut: stay under, or as low as possible
           return (r < top ? 20 + r : -r) + rnd() * noise;              // duck under the current winner
         });
       }

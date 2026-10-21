@@ -314,7 +314,8 @@
   };
   T.zonePos = function (z) {
     var L = this.L, cy = L.pileY;
-    if (z.pos === 'side') return { x: L.pile * 2.6, y: cy };
+    // off to the lower right, clear of the cards being played into a trick
+    if (z.pos === 'side') return { x: L.tilt < 40 ? 200 : L.rx * 0.62, y: cy + (L.tilt < 40 ? 330 : 190) };
     if (z.pos === 'left') return { x: -L.pile * 2.6, y: cy };
     return { x: 0, y: cy };
   };
@@ -887,6 +888,7 @@
       var prevLoc = rec.loc;
       rec.loc = tg.loc;
       rec.el.classList.toggle('in-hand', tg.loc === 'mine');
+      rec.el.classList.toggle('in-trick', tg.loc === 'zone:trick');
       if (isNew && types.deal && dealOrder[id] != null) {
         var at = t0 + dealOrder[id] * 0.065 / Math.max(0.6, Math.min(1.6, Object.keys(dealOrder).length / 50));
         tl.call(function () { S.play('deal'); }, null, at);

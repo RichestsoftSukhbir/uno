@@ -1,5 +1,5 @@
 /* Offline cache: the whole app (vs CPU and pass & play) works without a network. */
-const CACHE = 'uno-arena-v12';
+const CACHE = 'uno-arena-v13';
 const ASSETS = ['./', 'index.html', 'css/style.css', 'vendor/gsap.min.js', 'js/shared/engine.js', 'js/shared/patti.js', 'js/shared/bots.js', 'js/shared/controller.js',
   'js/client/icons.js', 'js/client/pattiCards.js', 'js/client/cards.js', 'js/client/sound.js', 'js/client/rules.js', 'js/client/demo.js', 'js/client/demos.js', 'js/client/table.js', 'js/client/net.js', 'js/client/app.js', 'icon.svg', 'img/uno-logo.svg', 'img/table-bg.jpg', 'img/table-bg-sm.jpg', 'img/desi-table.jpg', 'img/desi-table-sm.jpg', 'img/pro-table.jpg', 'img/pro-table-sm.jpg', 'manifest.webmanifest'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting())); });

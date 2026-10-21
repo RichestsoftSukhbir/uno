@@ -1102,3 +1102,14 @@ body:not([data-universe="desi"]) .sh-sparks i:nth-child(4n+2) { background: #7df
   .lp-stage .lp-sticker { right: 0; top: 0; font-size: 24px; padding: 8px 12px; }
   body[data-universe="desi"] .lp-stage .lp-sticker { font-size: 26px; }
 }
+/* cards in the current trick get a soft gold edge so dark cards stand out on the carpet */
+.card.in-trick .face { box-shadow: 0 0 0 2px rgba(255,214,120,.95), 0 0 18px 4px rgba(255,180,50,.55), 0 4px 10px rgba(0,0,0,.5); }
+/* desi (dark) cards: a thin gold rim so they never melt into the carpet, and a gentle dim for unplayable
+   cards (UNO's 62% darkening turns black cards almost invisible) */
+body[data-playing="patti"] .card .face { box-shadow: 0 0 0 1px rgba(255,214,120,.45), 0 2px 6px rgba(0,0,0,.55); }
+body[data-playing="patti"] .card.dim .face { filter: brightness(.9) saturate(.55); box-shadow: 0 0 0 1px rgba(255,214,120,.3), 0 2px 6px rgba(0,0,0,.55); }
+body[data-playing="patti"] .card.hover.dim .face { filter: none; }
+body[data-playing="patti"] .card.playable .face { box-shadow: 0 0 0 3px rgba(255,214,120,.95), 0 0 22px 6px rgba(255,190,60,.8); }
+body[data-playing="patti"] .card.in-trick .face { box-shadow: 0 0 0 2px rgba(255,214,120,.95), 0 0 18px 4px rgba(255,180,50,.55), 0 4px 10px rgba(0,0,0,.5); }
+body[data-playing="patti"] .card.pickable .face { box-shadow: 0 0 0 3px #fff, 0 0 22px 8px rgba(255,170,40,.9); }
+body[data-playing="patti"] .card.selected .face { box-shadow: 0 0 0 4px #3df, 0 0 24px 6px rgba(60,220,255,.85); }
