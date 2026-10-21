@@ -1,6 +1,6 @@
 /*
  * Standard 52-card deck ("patte") for the Desi games, drawn as SVG.
- * Three looks: 'noir' (black premium deck with gold line art, star dust and
+ * Looks: 'modern' (light, flat, big indexes - the default), 'noir' (black premium deck with gold line art, star dust and
  * crescent moons), 'indian' (ivory cards, gold borders, Raja/Rani/Ghulam courts,
  * maroon mandala back) and 'pro' (classic white casino cards, lattice back).
  * Faces are { s: 'S'|'H'|'D'|'C', r: 'A'|'2'..'10'|'J'|'Q'|'K' } in a 60 x 90 box.
@@ -120,6 +120,78 @@
       '<g clip-path="url(#cf)">' + half + '</g><g transform="rotate(180 30 45)"><g clip-path="url(#cf)">' + half + '</g></g>');
   }
 
+
+  /* ---------------- modern: light, flat and easy to read ---------------- */
+  var MOD = { paper: '#f7f5ef', red: '#d7263d', navy: '#1d2b4f', coral: '#ef7b5b', pale: '#b5d8de', redTint: '#f6dcd8', navyTint: '#dde6ea',
+    font: "'Helvetica Neue',Arial,'Liberation Sans',sans-serif" };
+  function modInk(s) { return s === 'H' || s === 'D' ? MOD.red : MOD.navy; }
+  function modShell(inner) {
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 90" width="240" height="360">' +
+      '<rect x="0.3" y="0.3" width="59.4" height="89.4" rx="3.6" fill="' + MOD.paper + '" stroke="#c9c4b8" stroke-width="0.5"/>' + inner + '</svg>';
+  }
+  // big, bold corner index: the part you still see when cards overlap in a hand
+  function modCorners(f) {
+    var c = modInk(f.s);
+    var t = '<g><text x="7.6" y="13.4" text-anchor="middle" style="font-family:' + MOD.font + ';font-weight:800;font-size:' + (f.r === '10' ? 9.6 : 12) + 'px" fill="' + c + '" letter-spacing="-0.8">' + f.r + '</text>' +
+      '<path d="' + PIP[f.s] + '" fill="' + c + '" transform="translate(7.6 20.2) scale(.34)"/></g>';
+    return t + '<g transform="rotate(180 30 45)">' + t + '</g>';
+  }
+  function modNumber(f) {
+    var c = modInk(f.s);
+    // pip columns pulled in a little so they clear the larger corner index
+    var body = (LAYOUT[+f.r] || []).map(function (q) { return pip(f.s, 30 + (q[0] - 30) * 0.8, 45 + (q[1] - 45) * 0.96, 0.52, c, q[1] > 46); }).join('');
+    return modShell(modCorners(f) + body);
+  }
+  function modAce(f) {
+    var red = f.s === 'H' || f.s === 'D';
+    var tint = red ? MOD.redTint : MOD.navyTint, acc = red ? MOD.coral : MOD.pale;
+    var deco = '<circle cx="30" cy="45" r="19" fill="' + tint + '"/>' +
+      '<path d="M30 26 A19 19 0 0 1 49 45 L30 45 Z" fill="' + acc + '" opacity=".55"/>';
+    return modShell(modCorners(f) + deco + pip(f.s, 30, 45, f.s === 'S' ? 1.3 : 1.15, modInk(f.s)));
+  }
+  // courts: a crowned letter monogram, mirrored like a real court card, over flat geometric shapes
+  function modCourt(f) {
+    var red = f.s === 'H' || f.s === 'D', ink = modInk(f.s);
+    var acc = red ? MOD.coral : MOD.pale, acc2 = red ? MOD.redTint : MOD.navyTint;
+    var crown = f.r === 'K' ? 'M21.5 21 L21.5 13 L25.8 16.8 L30 11.5 L34.2 16.8 L38.5 13 L38.5 21 Z'
+      : f.r === 'Q' ? 'M22.5 21 L23.5 14.5 L27 17.6 L30 13 L33 17.6 L36.5 14.5 L37.5 21 Z'
+      : 'M23.5 21 L23.5 15.5 L30 18.5 L36.5 15.5 L36.5 21 Z';
+    var half = '<g>' +
+      '<path d="M14 45 L14 28 A17 17 0 0 1 31 45 Z" fill="' + acc2 + '"/>' +
+      '<path d="M46 45 L46 30 L33 45 Z" fill="' + acc + '" opacity=".7"/>' +
+      '<path d="' + crown + '" fill="' + (red ? MOD.red : MOD.navy) + '"/>' +
+      '<rect x="21.5" y="20" width="17" height="1.6" fill="' + acc + '"/>' +
+      '<text x="30" y="43.6" text-anchor="middle" style="font-family:Georgia,\'Times New Roman\',serif;font-weight:700;font-size:25px" fill="' + ink + '">' + f.r + '</text>' +
+      pip(f.s, 42.8, 25.5, 0.3, ink) + '</g>';
+    var clip = '<clipPath id="mc"><rect x="13" y="9" width="34" height="36"/></clipPath>';
+    return modShell(modCorners(f) + '<defs>' + clip + '</defs>' +
+      '<g clip-path="url(#mc)">' + half + '</g><g transform="rotate(180 30 45)"><g clip-path="url(#mc)">' + half + '</g></g>' +
+      '<line x1="14" y1="45" x2="46" y2="45" stroke="' + ink + '" stroke-width="0.4" opacity=".35"/>');
+  }
+  // back: a Bauhaus-style tiling of flat shapes
+  function modBack() {
+    var P = [MOD.navy, MOD.red, MOD.coral, MOD.pale, MOD.paper];
+    // [background, shape colour, shape, rotation] per tile, 4 columns x 6 rows
+    var T = [[3, 0, 'tri', 0], [0, 4, 'qc', 1], [2, 1, 'sq', 0], [4, 0, 'qc', 2],
+      [1, 2, 'half', 0], [4, 1, 'circ', 0], [0, 3, 'tri', 2], [2, 4, 'dia', 0],
+      [4, 0, 'qc', 3], [3, 1, 'tri', 1], [1, 4, 'qc', 0], [0, 2, 'half', 2],
+      [2, 0, 'dia', 0], [0, 4, 'half', 1], [4, 2, 'tri', 3], [3, 0, 'qc', 1],
+      [0, 3, 'circ', 0], [1, 2, 'qc', 2], [3, 0, 'half', 3], [4, 1, 'tri', 0],
+      [4, 1, 'qc', 0], [2, 0, 'tri', 1], [0, 4, 'dia', 0], [1, 3, 'qc', 3]];
+    var w = 13, h = 82 / 6, x0 = 4, y0 = 4, tiles = '';
+    T.forEach(function (t, i) {
+      var cx = x0 + (i % 4) * w, cy = y0 + Math.floor(i / 4) * h, bg = P[t[0]], fg = P[t[1]];
+      var shape = t[2] === 'tri' ? '<path d="M0 0 L' + w + ' 0 L0 ' + h + ' Z" fill="' + fg + '"/>'
+        : t[2] === 'qc' ? '<path d="M0 0 L' + w + ' 0 A' + w + ' ' + h + ' 0 0 1 0 ' + h + ' Z" fill="' + fg + '"/>'
+        : t[2] === 'half' ? '<path d="M0 ' + h + ' A' + w / 2 + ' ' + h / 2 + ' 0 0 1 ' + w + ' ' + h + ' Z" fill="' + fg + '"/>'
+        : t[2] === 'circ' ? '<circle cx="' + w / 2 + '" cy="' + h / 2 + '" r="' + w * 0.36 + '" fill="' + fg + '"/>'
+        : t[2] === 'dia' ? '<path d="M' + w / 2 + ' 1.5 L' + (w - 1.5) + ' ' + h / 2 + ' L' + w / 2 + ' ' + (h - 1.5) + ' L1.5 ' + h / 2 + ' Z" fill="' + fg + '"/>'
+        : '<rect x="' + w * 0.22 + '" y="' + h * 0.22 + '" width="' + w * 0.56 + '" height="' + h * 0.56 + '" fill="' + fg + '"/>';
+      tiles += '<g transform="translate(' + cx.toFixed(2) + ' ' + cy.toFixed(2) + ')"><rect width="' + (w + 0.05) + '" height="' + (h + 0.05) + '" fill="' + bg + '"/>' +
+        '<g transform="rotate(' + t[3] * 90 + ' ' + w / 2 + ' ' + h / 2 + ')">' + shape + '</g></g>';
+    });
+    return modShell('<clipPath id="mb"><rect x="4" y="4" width="52" height="82" rx="2"/></clipPath><g clip-path="url(#mb)">' + tiles + '</g>');
+  }
 
   /* ---------------- noir: black & gold premium deck ---------------- */
   var NOIR = { red: '#e8262e', ivory: '#f1e9d6', gold: '#d9b45a', goldDim: 'rgba(217,180,90,.42)', font: "Georgia,'Times New Roman',serif" };
@@ -244,6 +316,7 @@
   }
 
   function face(f, theme) {
+    if (theme === 'modern') return f.r === 'A' ? modAce(f) : (f.r === 'J' || f.r === 'Q' || f.r === 'K') ? modCourt(f) : modNumber(f);
     if (theme === 'noir') return f.r === 'A' ? noirAce(f) : (f.r === 'J' || f.r === 'Q' || f.r === 'K') ? noirCourt(f) : noirNumber(f);
     var st = STYLE[theme] || STYLE.indian;
     if (f.r === 'A') return aceFace(f, st);
@@ -252,6 +325,7 @@
   }
 
   function back(theme) {
+    if (theme === 'modern') return modBack();
     if (theme === 'noir') return noirBack();
     if (theme === 'pro') {
       var lines = '';

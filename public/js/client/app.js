@@ -28,7 +28,7 @@
     document.body.dataset.desiTheme = th;
     var art = Cards.deckStyle();
     Cards.setDesiTheme(th);
-    Cards.setDesiDeck(settings.desiDeck || 'noir');
+    Cards.setDesiDeck(settings.desiDeck || 'modern');
     if (Cards.deckStyle() !== art) {
       if (app.table) app.table.refreshFaces();
       if (app.screen === 'home' && app.homeBuilt) buildHome();
@@ -96,9 +96,11 @@
   /* ------------------------------------------------------------------ */
   /* settings                                                            */
   /* ------------------------------------------------------------------ */
-  var DEFAULT_SETTINGS = { sound: true, voice: true, volume: 0.7, anim: 1, theme: 'green', hints: true, sortHand: true, botSpeed: 1, name: '', avatar: 'panda', universe: 'uno', desiTheme: 'indian', desiDeck: 'noir' };
+  var DEFAULT_SETTINGS = { sound: true, voice: true, volume: 0.7, anim: 1, theme: 'green', hints: true, sortHand: true, botSpeed: 1, name: '', avatar: 'panda', universe: 'uno', desiTheme: 'indian', desiDeck: 'modern' };
   var settings = Object.assign({}, DEFAULT_SETTINGS);
   try { Object.assign(settings, JSON.parse(localStorage.getItem('uno.settings') || '{}')); } catch (e) { /* ignore */ }
+  // the light deck became the default: move anyone who never picked a deck onto it
+  if (!settings.deckPicked) settings.desiDeck = 'modern';
   function saveSettings() {
     try { localStorage.setItem('uno.settings', JSON.stringify(settings)); } catch (e) { /* ignore */ }
     applySettings();
@@ -1314,7 +1316,7 @@
       '<label class="opt"><span>Animation speed</span><select data-k="anim"><option value="0.7">Relaxed</option><option value="1">Normal</option><option value="1.4">Fast</option><option value="2">Very fast</option></select></label>' +
       '<label class="opt"><span>CPU speed</span><select data-k="botSpeed"><option value="0.7">Slow</option><option value="1">Normal</option><option value="1.6">Fast</option></select></label>' +
       '<label class="opt"><span>Table</span><select data-k="theme"><option value="green">Green felt</option><option value="blue">Blue felt</option><option value="red">Casino red</option><option value="purple">Midnight</option><option value="wood">Wooden table</option></select></label>' +
-      '<label class="opt"><span>Desi card design</span><select data-k="desiDeck"><option value="noir">Noir gold</option><option value="theme">Match the hall theme</option><option value="indian">Indian ivory</option><option value="pro">Classic white</option></select></label>' +
+      '<label class="opt"><span>Desi card design</span><select data-k="desiDeck"><option value="modern">Light &ndash; Modern (easy to read)</option><option value="noir">Dark &ndash; Noir gold</option><option value="indian">Indian ivory</option><option value="pro">Classic white</option><option value="theme">Match the hall theme</option></select></label>' +
       '<label class="opt"><input type="checkbox" data-k="hints"' + (s.hints ? ' checked' : '') + '><span>Highlight playable cards</span></label>' +
       '<label class="opt"><input type="checkbox" data-k="sortHand"' + (s.sortHand ? ' checked' : '') + '><span>Sort my hand by colour</span></label>' +
       '</div><div class="pr-btns"><button class="btn primary" data-close>Done</button></div>');
@@ -1324,6 +1326,7 @@
         var k = el.dataset.k;
         s[k] = el.type === 'checkbox' ? el.checked : (el.type === 'range' || k === 'anim' || k === 'botSpeed' ? +el.value : el.value);
         saveSettings();
+        if (k === 'desiDeck') { s.deckPicked = true; saveSettings(); }
         if (k === 'sortHand' && app.table && app.view) app.table.relayout();
         if (k === 'sound' && s.sound) S.play('pop');
       };

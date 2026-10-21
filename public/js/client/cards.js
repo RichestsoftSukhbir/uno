@@ -294,8 +294,8 @@
   // Desi games use a standard 52-card deck (pattiCards.js) in the current desi theme
   var desiTheme = 'indian';
   function setDesiTheme(t) { desiTheme = t === 'pro' ? 'pro' : 'indian'; }
-  // card design for the 52-card deck: 'noir' (black & gold), 'indian', 'pro', or 'theme' to follow the hall theme
-  var desiDeck = 'noir';
+  // card design for the 52-card deck: 'modern' (light), 'noir' (black & gold), 'indian', 'pro', or 'theme' to follow the hall theme
+  var desiDeck = 'modern';
   function setDesiDeck(d) { desiDeck = d; }
   function deckStyle() { return desiDeck === 'theme' ? desiTheme : desiDeck; }
 
