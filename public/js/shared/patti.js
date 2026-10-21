@@ -36,19 +36,32 @@
     chips: { label: 'Starting chips', type: 'number', min: 100, max: 100000, step: 100 },
     boot: { label: 'Boot (entry) amount', type: 'number', min: 1, max: 1000, step: 1 },
     potLimit: { label: 'Pot limit (forces a show)', type: 'number', min: 100, max: 1000000, step: 100 },
-    sideShow: { label: 'Allow side show', type: 'bool' }
+    sideShow: { label: 'Allow side show', type: 'bool' },
+    // Bhabhi house rule: what happens when a player's final card can't be beaten by the next player
+    lastCard: { label: 'Last card must be beaten', type: 'select', choices: [['trick', 'On - next player takes the trick'], ['card', 'On - next player takes that card'], ['off', 'Off (classic)']] }
   };
+  /*
+   * Bhabhi rule settings, kept in one place because the game has many regional variations.
+   *  - ranks: the existing order, 2 low ... Ace high (hi()).
+   *  - a "beat" is a card of the suit that was led, ranked higher than the final card played.
+   *    A player with none of the led suit is not facing the rule: they throw a thulla as usual.
+   *  - lastCard 'trick': the responder picks up every card on the table and leads next.
+   *    lastCard 'card': the responder takes only the final card, then plays on in the same trick.
+   *    lastCard 'off': classic - a player who empties their hand is safe once the trick ends.
+   */
   var COMMON = ['rounds', 'turnTimer'];
   var GAMES = {
     bhabhi: { id: 'bhabhi', universe: 'desi', name: 'Bhabhi', short: 'Bhabhi', players: [3, 8], accent: '#c1121f', sig: { s: 'S', r: 'A' },
       tagline: 'Follow suit or slip in a "thulla" - the last one left holding cards is the Bhabhi!',
-      defaults: { rounds: 1, turnTimer: 30 }, options: COMMON },
+      defaults: { rounds: 1, lastCard: 'trick', turnTimer: 30 }, options: ['rounds', 'lastCard', 'turnTimer'] },
     bluff: { id: 'bluff', universe: 'desi', name: 'Bluff', short: 'Bluff', players: [3, 8], accent: '#7b2cbf', sig: { s: 'H', r: 'K' },
       tagline: 'Play cards face-down, claim a rank and lie with a straight face. "Bluff!"',
       defaults: { rounds: 1, decks: '1', turnTimer: 30 }, options: ['rounds', 'decks', 'turnTimer'] },
     seep: { id: 'seep', universe: 'desi', name: 'Seep (Sweep)', short: 'Seep', players: [2, 4], allowed: [2, 4], accent: '#2a9d8f', sig: { s: 'D', r: '10' },
       tagline: 'Build houses, capture by value and sweep the floor clean for 50 points.',
-      defaults: { rounds: 1, turnTimer: 45 }, options: COMMON },
+      defaults: { rounds: 1, turnTimer: 45 }, options: COMMON,
+      // turn pacing (ms): CPUs think a little longer, and every move gets a beat to settle on the table
+      pace: { botDelay: 1100, settle: 450 } },
     sevens: { id: 'sevens', universe: 'desi', name: 'Satte Pe Satta', short: 'Satte Pe Satta', players: [3, 8], accent: '#e76f51', sig: { s: 'H', r: '7' },
       tagline: 'Sevens open the rows - build each suit up and down. First to empty the hand wins.',
       defaults: { rounds: 1, turnTimer: 30 }, options: COMMON },
@@ -272,6 +285,7 @@
       this.emit({ t: 'thulla', p: p });
     }
     var playersInTrick = this.trickSize || (this.trickSize = this.active().length);
+    if (!thulla && this.trick.length < playersInTrick && this.lastCardCheck(p, c)) return;
     if (thulla || this.trick.length >= playersInTrick) {
       var best = null;
       this.trick.forEach(function (t) { if (t.c.s === (led || c.s) && (!best || hi(t.c.r) > hi(best.c.r))) best = t; });
@@ -283,9 +297,30 @@
     this.current = this.next(p, function (pl) { return !pl.out; });
     this.firstTrick = this.firstTrick && false;
   };
+  // a player has just played their final card: can the next player beat it?
+  BH.lastCardCheck = function (p, c) {
+    var mode = this.o.lastCard || 'off';
+    if (mode === 'off' || this.players[p].hand.length) return false;
+    var self = this;
+    var played = {};
+    this.trick.forEach(function (t) { played[t.p] = true; });
+    var q = this.next(p, function (pl) { return !pl.out && !played[pl.id] && pl.hand.length > 0; });
+    if (q == null || q === p) return false;
+    var led = this.trick[0].c.s;
+    var follow = this.players[q].hand.filter(function (x) { return x.s === led; });
+    if (!follow.length) return false;                                   // no card of the suit: a normal thulla
+    if (follow.some(function (x) { return hi(x.r) > hi(c.r); })) return false;  // they can beat it: play on
+    this.result = { winner: q, pickup: true, lastCard: mode, from: p, card: c };
+    this.phase = 'collect';
+    this.current = q;
+    this.note(this.pname(q) + ' can\'t beat ' + this.pname(p) + '\'s last card (' + cname(c) + ') and must take ' + (mode === 'card' ? 'it' : 'the cards') + '.');
+    this.emit({ t: 'lastCard', p: q, from: p });
+    return true;
+  };
   BH.on_collect = function () {
     var self = this;
     var res = this.result;
+    if (res.lastCard === 'card') return this.takeLastCard(res);
     var ids = this.trick.map(function (t) { return t.c.id; });
     if (res.pickup) {
       this.trick.forEach(function (t) { self.players[res.winner].hand.push(t.c); delete self.voids[res.winner][t.c.s]; });
@@ -309,6 +344,30 @@
     this.current = this.players[res.winner].out ? this.next(res.winner, function (pl) { return !pl.out; }) : res.winner;
     this.phase = 'play';
   };
+  // 'card' mode: the responder takes the final card, the player who played it is safe, and the trick goes on
+  BH.takeLastCard = function (res) {
+    var self = this;
+    var t = this.trick.pop();
+    this.players[res.winner].hand.push(t.c);
+    this.sortHand(res.winner);
+    delete this.voids[res.winner][t.c.s];
+    this.emit({ t: 'pickup', p: res.winner, ids: [t.c.id] });
+    this.note(this.pname(res.winner) + ' takes ' + cname(t.c) + '.');
+    this.trickSize = this.trick.length ? this.trickSize - 1 : 0;
+    this.result = null;
+    this.players.forEach(function (pl) {
+      if (!pl.out && !pl.hand.length) { pl.out = true; pl.tag = 'SAFE'; self.emit({ t: 'escape', p: pl.id }); self.note(pl.name + ' is out of cards - safe!'); }
+    });
+    var left = this.active();
+    if (left.length <= 1) {
+      // only the taker is left holding cards: the trick on the table ends with them
+      this.trick.forEach(function (x) { self.outPile.push(x.c); });
+      this.trick = [];
+      return this.endBhabhi(left[0] ? left[0].id : null);
+    }
+    this.current = res.winner;
+    this.phase = 'play';
+  };
   BH.endBhabhi = function (loser) {
     if (loser != null) { this.players[loser].tag = 'BHABHI'; this.loss[loser]++; this.emit({ t: 'bhabhi', p: loser }); }
     var delta = this.players.map(function (pl) { return pl.id === loser ? 0 : 1; });
@@ -317,7 +376,8 @@
   };
   BH.view = function (viewer) {
     var res = this.result;
-    var label = this.phase === 'collect' ? (res.pickup ? this.pname(res.winner) + ' picks up!' : 'Trick goes out') : (this.trick.length ? 'Follow ' + SUIT_NAME[this.trick[0].c.s] : '');
+    var label = this.phase === 'collect' ? (res.lastCard ? this.pname(res.winner) + ' can\'t beat the last card - takes ' + (res.lastCard === 'card' ? 'it' : 'the cards') + '!'
+      : res.pickup ? this.pname(res.winner) + ' picks up!' : 'Trick goes out') : (this.trick.length ? 'Follow ' + SUIT_NAME[this.trick[0].c.s] : '');
     var zones = [trickZone(this, label), { id: 'out', type: 'pile', pos: 'side', faceUp: false, label: this.outPile.length ? 'Out · ' + this.outPile.length : '', cards: this.outPile.slice(-8).map(function (c) { return { id: c.id, a: null, b: 'back' }; }) }];
     var led = this.trick.length ? this.trick[0].c.s : null;
     var voids = this.voids.map(function (v) { return Object.keys(v); });

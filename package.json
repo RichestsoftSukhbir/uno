@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "test": "node test/simulate.js",
+    "test:desi": "node test/simulate-patti.js && node test/bhabhi-rules.js",
     "postinstall": "node scripts/copy-vendor.js"
   },
   "engines": { "node": ">=12" },

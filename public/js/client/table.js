@@ -1125,6 +1125,8 @@
         /* ---------- Desi games ---------- */
         case 'thulla':
           tl.call(function () { S.play('thulla'); S.say('Thulla!', 'hi'); self.bubble(e.p, 'THULLA!', 'caught'); self.shake(6); }, null, at); break;
+        case 'lastCard':
+          tl.call(function () { S.play('challenge'); self.bubble(e.p, 'Can\'t beat it!', 'caught'); self.bubble(e.from, 'LAST CARD!', 'uno'); }, null, at); break;
         case 'pickup':
           tl.call(function () { S.play('penalty'); self.bubble(e.p, 'Picks up ' + e.ids.length + '!', 'challenge'); }, null, at); break;
         case 'trickOut':

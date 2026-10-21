@@ -74,7 +74,9 @@
       if (e.t === 'deal') ms += (e.more ? 300 : 1200) + e.order.length * (e.more ? 40 : 70);
       else if (e.t === 'pickup' || e.t === 'capture' || e.t === 'trickWon' || e.t === 'trickOut') ms += 600;
       else if (e.t === 'bluffCall' || e.t === 'showdown' || e.t === 'sidecompare') ms += 1200;
-      else if (e.t === 'bluffPlay' || e.t === 'bet' || e.t === 'pick' || e.t === 'pairs' || e.t === 'build' || e.t === 'throw') ms += 450;
+      else if (e.t === 'bluffPlay' || e.t === 'bet' || e.t === 'pick' || e.t === 'pairs' || e.t === 'build' || e.t === 'throw' || e.t === 'cement') ms += 450;
+      else if (e.t === 'seep' || e.t === 'lastCard') ms += 900;
+      else if (e.t === 'bid' || e.t === 'floor') ms += 600;
       else if (e.t === 'draw') ms += 350 + Math.min(e.n, 12) * 110;
       else if (e.t === 'flip') ms += 1300;
       else if (e.t === 'swap' || e.t === 'rotate') ms += 1000;
@@ -94,6 +96,9 @@
     this.clearTimers();
     if (this.destroyed || g.gameOver) return;
     var anim = this.animTime(events) / (this.opts.animSpeed || 1);
+    // per-game pacing (e.g. Seep): a short pause after every move so the table settles before the next turn
+    var pace = (g.V && g.V.pace) || {};
+    if (pace.settle && events && events.length) anim += pace.settle * this.speed;
 
     if (g.phase === 'roundOver') {
       var allBots = g.players.every(function (p, i) { return self.isBot(i); });
@@ -124,7 +129,7 @@
       return;
     }
     if (this.isBot(actor)) {
-      var base = (this.opts.botDelay || 950) * this.speed;
+      var base = (pace.botDelay || this.opts.botDelay || 950) * this.speed;
       var think = base * (0.75 + Math.random() * 0.6);
       // give humans a moment to catch a missing UNO before the bot moves on
       if (g.unoPending != null) think += 900;
