@@ -184,12 +184,13 @@
   R.bhabhi = {
     intro: 'The great Indian "get rid of your cards" game (also called Get Away). Follow suit, dodge the pick-ups - the last player still holding cards is the <b>Bhabhi</b>!',
     deck: 'One standard 52-card deck, Aces high. All cards are dealt out (some players may get one more card).',
-    setup: ['Shuffle and deal every card.', 'The player holding the <b>Ace of Spades</b> starts by leading it.'],
+    setup: ['Shuffle and deal every card.', 'The player holding the <b>Ace of Spades</b> starts by leading it.', '<b>First trick</b>: it is always discarded - a player without spades just throws any card and nobody picks up (setup option: switch this off to let thullas count from the first trick).'],
     turn: [
       'Going round the table, everyone plays one card to the trick and <b>must follow the suit led</b> if they can.',
       'If everyone follows suit, the trick goes out of play and the player of the highest card leads next.',
       'If someone can\'t follow suit, they play any other card - a <b>thulla</b>. The trick stops at once and the player who played the <b>highest card of the led suit picks up the whole trick</b> into their hand, then leads.',
-      'Run out of cards and you are <b>safe</b>. The last player left with cards is the Bhabhi.'
+      'Run out of cards and you are <b>safe</b>. The last player left with cards is the Bhabhi.',
+      '<b>Last card must be beaten</b> (setup option, on by default): when a player plays their final card, the next player must beat it with a higher card of the led suit. If they hold that suit but only lower cards, they take the cards on the table (or just that card, by option) and lead next. A player with none of the suit throws a thulla as usual.'
     ],
     cardsTitle: 'Key cards',
     cards: [
@@ -223,35 +224,42 @@
   };
 
   R.seep = {
-    intro: 'Seep (Sweep / Sweeep) is the classic North-Indian fishing game for 2 players or 4 players in two teams. Capture cards by value, build "houses", and sweep the floor clean for a big bonus.',
-    deck: 'One 52-card deck. Values: Ace = 1, number cards their number, Jack = 11, Queen = 12, King = 13.',
+    intro: 'Seep (Sweep / Sip) is the classic Punjabi and North-Indian fishing game for 2 players or 4 players in two teams (partners opposite). Capture cards by value, build "houses", and sweep the floor clean for a big bonus.',
+    deck: 'One 52-card deck, no jokers. Capture values: Ace = 1, number cards their number, Jack = 11, Queen = 12, King = 13.',
     setup: [
       'The player after the dealer gets 4 cards and must <b>bid</b> a house value from 9 to 13 that they hold (no card of 9+ means a redeal).',
-      'Four cards are dealt face-up to the floor. The bidder then builds a house of the bid value, captures with it, or throws that card.',
+      'Four cards go face-up to the floor. The bidder\'s first play must be for the bid: build or cement a house of that value, capture with that value, or throw that card.',
       'The rest is dealt so everyone holds 12 cards (2 players: the second half is dealt once hands run out).'
     ],
     turn: [
-      '<b>Capture</b>: play a card and take every floor card (and house) whose values add up to it in groups - e.g. a 9 takes 4+5 and 2+7.',
-      '<b>Build a house</b>: play a card onto floor cards to make 9-13. You must hold another card of that value to capture it later.',
-      '<b>Raise</b> an unbroken house to a higher value, or make it <b>pakka</b> (cement it) by adding a card of the same value.',
-      '<b>Throw</b>: put a card loose on the floor - not allowed while you own a house on the floor.',
-      '<b>Seep</b>: clear the whole floor with a capture for a 50-point bonus (not on the very last move).',
+      '<b>Capture</b>: play a card and take every floor item of its value - houses of that value and loose cards in groups adding up to it (a 9 takes a loose 9, 4+5 and 2+7 all at once). You must take everything that matches.',
+      '<b>Build a house</b> (9-13): play a card onto loose cards so they add up to the house value. You must keep another card of that value to capture it later.',
+      '<b>Pakka (cemented) house</b>: play onto loose cards that make the value twice or more - e.g. a <b>9 onto a loose 9</b> (or onto 4+5) while you hold another 9. A card (plus loose cards) equal to an existing house\'s value also makes it pakka. Pakka houses can\'t be broken.',
+      '<b>Break / raise</b> someone else\'s ordinary house with one card from your hand (never loose cards, never your own house), if you hold the new value.',
+      'Adding to an opponent\'s house needs a card of its value and makes you an owner; adding to your partner\'s house needs neither. A second house of the same value merges into the first and becomes pakka.',
+      'A house owner must keep a card of its value until the house is captured. While your side has a house on the floor you may not throw a loose card if any other move is possible.',
+      '<b>Throw</b>: put a card loose on the floor.',
       'When all cards are played, whoever captured last takes what is left on the floor.'
     ],
-    cardsTitle: 'Point cards (100 in total)',
+    cardsTitle: 'Point cards (100-point game)',
     cards: [
       [sc('S', 'K'), 'Spades', 'Every spade is worth its value: A♠ = 1 … K♠ = 13 (91 points in all).'],
       [sc('H', 'A'), 'Other Aces', 'A♥, A♦ and A♣ are worth 1 point each.'],
       [sc('D', '10'), 'Ten of Diamonds', 'Worth 6 points - the famous "dus".']
     ],
-    extra: ['How to play here: tap a card and choose what it should do (capture, build, raise, cement or throw).'],
-    scoring: 'Each side scores its captured point cards plus 50 per seep. Over several rounds, the highest total wins.'
+    extra: [
+      '<b>Seep</b> (sweep): clear the whole floor with one capture - 50 points; only 25 on the bidder\'s very first play, and nothing on the very last turn of the deal.',
+      '<b>Punjabi 30-point scoring</b> (setup option): 10♦ = 12, 9♠ = 9, 2♠ = 1, each Ace = 1, and 4 points to the side capturing more cards. A sweep scores the capture value of the card played. The deal is redone if the 10♦ or 9♠ would start on the floor. Taking all 30 card points ("satthi") scores 60.',
+      '<b>Baazi</b> (setup option): the score difference carries over from deal to deal until a side leads by 100 (30 in Punjabi scoring). In the 100-point game, a side that scores under 9 in a deal loses the baazi at once.',
+      'How to play here: tap a card, then either pick a move from the strip above your hand or tap the floor cards / house it should go on (tap several to combine them). You can also drag the card onto a floor card.'
+    ],
+    scoring: 'Each side scores its captured point cards plus its seep bonuses. Play a set number of deals (highest total wins) or a baazi.'
   };
 
   R.sevens = {
     intro: 'Satte Pe Satta (Sevens / Fan-Tan): build the four suits outwards from the sevens. The first player to empty their hand wins.',
     deck: 'One 52-card deck. Ace is low (A-2-3 … J-Q-K).',
-    setup: ['Deal all cards. Whoever holds the <b>7 of Hearts</b> plays it first.'],
+    setup: ['Deal all cards. Whoever holds the <b>7 of Hearts</b> plays it first (setup option: the 7 of Diamonds, or any seven - then the first player from the dealer\'s left who holds one opens).'],
     turn: [
       'On your turn play one card: a <b>7</b> starts a new suit row, or a card <b>next in sequence</b> to a row already on the table (6 or 8 of that suit, then 5 or 9, and so on).',
       'You must play if you can. If no card fits, you pass.',
@@ -307,7 +315,7 @@
       [sc('H', '10'), 'Pair', 'Two of the same rank.'],
       [sc('S', '9'), 'High Card', 'None of the above - highest card wins.']
     ],
-    extra: ['This is a points-only game for fun. No real money is involved.'],
+    extra: ['<b>Muflis</b> (setup option): the ranking is turned upside down - the lowest hand wins the show.', 'This is a points-only game for fun. No real money is involved.'],
     scoring: 'Chips won stay with you between rounds. After the last round - or when only one player has chips - the biggest stack wins.'
   };
 
@@ -330,8 +338,86 @@
       [sc('H', '2'), 'Trumps', 'Even a 2 of trumps beats an Ace of another suit.'],
       [sc('D', 'J'), 'Partners', 'If your partner is already winning the trick, throw a low card.']
     ],
-    extra: [],
+    extra: ['<b>Court</b>: winning the first 7 tricks while the other team has none is a Kot (3 points); winning <b>7 hands in a row</b> also scores a Court (3 more points).', '<b>Double Sir</b> (setup option): tricks are not collected one by one - they pile up in the centre until the <b>same player</b> (not their partner) wins two tricks in a row and collects the lot. The winner of the 13th trick takes whatever is left. All 13 tricks are played; the team that collected more wins the hand.', 'The deal passes to the next player every hand.', ],
     scoring: 'Winning a hand = 1 point, a Kot = 3 points. After the set number of rounds the team with more points wins.'
+  };
+
+  /* ---------------- the Pro card room ---------------- */
+  R.holdem = {
+    intro: 'Texas Hold\'em - the world\'s most played poker game. Played here with <b>chips only, never real money</b>. Make the best five-card hand from your two hole cards and the five shared cards on the board.',
+    deck: 'One 52-card deck. Hands rank: straight flush, four of a kind, full house, flush, straight (A-2-3-4-5 is the lowest), three of a kind, two pair, pair, high card.',
+    setup: ['Everyone starts with the same stack. The dealer button moves left every hand.', 'The two players left of the button post the <b>small</b> and <b>big blind</b> (heads-up: the button is the small blind).', 'Each player gets two hole cards face-down.'],
+    turn: [
+      'Four betting rounds: <b>pre-flop</b>, the <b>flop</b> (3 board cards), the <b>turn</b> (1) and the <b>river</b> (1). A card is burned before each.',
+      'On your turn: <b>fold</b>, <b>check</b> (nothing to call), <b>call</b> the current bet, <b>bet/raise</b> (at least the size of the last raise) or go <b>all in</b>.',
+      'Pre-flop the first player left of the big blind acts first; after the flop the first live player left of the button.',
+      'A round ends when everyone still in has acted and matched the bet. If all but one fold, the last player wins the pot without showing.',
+      '<b>Showdown</b>: the best five-card hand wins; equal hands split. Players who are all in can only win the side pots they paid into.'
+    ],
+    cardsTitle: 'Strong starting hands',
+    cards: [
+      [sc('S', 'A'), 'Pocket Aces', 'The best start. Any pair is strong pre-flop.'],
+      [sc('H', 'K'), 'Big suited cards', 'A-K, A-Q, K-Q of one suit make top pairs and flushes.'],
+      [sc('D', '7'), 'Small cards', 'Fold weak, unconnected low cards facing a raise.']
+    ],
+    extra: ['The table plays a set number of hands (setup option); whoever has the most chips at the end - or all of them - wins.'],
+    scoring: 'Chips only. The game ends after the set number of hands or when one player has every chip.'
+  };
+  R.blackjack = {
+    intro: 'Blackjack (21) against the house dealer, with <b>chips only, never real money</b>. Get closer to 21 than the dealer without going over.',
+    deck: 'A six-deck shoe, reshuffled when it runs low. Number cards count their value, J/Q/K count 10, an Ace counts 11 or 1.',
+    setup: ['Each player bets (at least the table minimum).', 'Everyone gets two cards face-up; the dealer gets one up and one face-down. With an Ace or ten-card showing, the dealer checks for blackjack first.'],
+    turn: [
+      '<b>Hit</b> to take a card, <b>Stand</b> to stop, or <b>Double</b> on your first two cards: double the bet, take exactly one more card.',
+      'Go over 21 and you are <b>bust</b> - you lose at once, even if the dealer busts later.',
+      'Then the dealer turns the hidden card and must draw to 16 and stand on all 17s.',
+      'Beat the dealer (or the dealer busts) and you win even money. A tie is a <b>push</b> - your bet comes back.'
+    ],
+    cardsTitle: 'Key cards',
+    cards: [
+      [sc('S', 'A'), 'Ace', 'Counts 11, or 1 if 11 would bust you - a "soft" hand.'],
+      [sc('H', 'K'), 'Ten-cards', '10, J, Q and K all count 10. Ace + ten-card on the first two cards is <b>Blackjack</b>, paid 3 to 2.'],
+      [sc('C', '6'), 'Dealer 2-6', 'The dealer often busts from a low card - stand on 12-16 against it.']
+    ],
+    extra: ['This table has no split and no insurance.', 'Tip: tap the shoe to hit.'],
+    scoring: 'Chips only. Play the set number of rounds; the biggest stack wins.'
+  };
+  R.rummy = {
+    intro: 'Indian Rummy, the 13-card game. Draw and discard until your cards form valid groups, then <b>declare</b>.',
+    deck: '2 players: one deck. 3-6 players: two decks. One card is cut face-up: every card of that rank (all suits) is a <b>wild joker</b> worth 0 points.',
+    setup: ['Each player gets 13 cards. The next card starts the open pile.'],
+    turn: [
+      '<b>Draw</b> one card - from the closed deck or the top of the open pile (tap them).',
+      '<b>Discard</b> one card onto the open pile (tap it). Your hand is kept grouped for you: melds first, loose cards after.',
+      '<b>Declare</b> when, after drawing, you can discard and the other 13 cards form groups with at least <b>two sequences, one of them pure</b>. The game checks this - the Declare button appears only when it is valid.',
+      '<b>Drop</b> instead of drawing to leave the deal: 20 points before your first turn, 40 after.'
+    ],
+    cardsTitle: 'Groups',
+    cards: [
+      [sc('H', '5'), 'Pure sequence', '3+ cards in a row of one suit with no joker standing in, e.g. 4-5-6 of Hearts. Ace can be low (A-2-3) or high (Q-K-A), never K-A-2.'],
+      [sc('S', '9'), 'Impure sequence', 'A sequence where a wild joker fills a gap.'],
+      [sc('D', 'K'), 'Set', '3 or 4 cards of one rank, all different suits (jokers can fill in).']
+    ],
+    extra: ['Penalty points for the others when someone declares: if you have no pure sequence every card counts; with a pure sequence but not two sequences only the pure sequence is safe; otherwise only your unmatched cards count. A, K, Q, J = 10, number cards their value, jokers 0, at most 80.'],
+    scoring: 'Points rummy: one deal, lowest penalty wins. Deals rummy (setup option): penalties add up over several deals and the lowest total wins.'
+  };
+  R.twentynine = {
+    intro: 'Twenty-Nine (29), the partnership trick game of India, Bangladesh and Pakistan. Bid for the card points your side can win, choose trump and make your contract.',
+    deck: '32 cards: 7, 8, 9, 10, J, Q, K, A of each suit. Rank high to low: <b>J, 9, A, 10, K, Q, 8, 7</b>.',
+    setup: ['Four players, partners sit opposite.', 'Four cards each. Starting left of the dealer, players bid 16-28 or pass (a passed player is out of the bidding); if three pass with no bid the last player must bid 16.', 'The highest bidder picks trump from their four cards. Four more cards each are dealt.'],
+    turn: [
+      'The player left of the dealer leads. Follow suit if you can; otherwise play any card (a trump or a discard).',
+      'The highest trump wins the trick, otherwise the highest card of the suit led. The winner leads next.',
+      'After eight tricks the bidding side counts its points.'
+    ],
+    cardsTitle: 'Card points (28 + last trick = 29)',
+    cards: [
+      [sc('C', 'J'), 'Jacks', '3 points each - and the highest cards.'],
+      [sc('H', '9'), 'Nines', '2 points each - second highest.'],
+      [sc('S', 'A'), 'Aces and Tens', '1 point each.']
+    ],
+    extra: ['The last trick is worth 1 extra point (setup option).', 'This table plays open trump (announced at once) without the King-Queen pair rule.'],
+    scoring: 'Make the bid: your side gains a game point. Fall short: it loses one. After the set number of deals the higher score wins.'
   };
 
   var GENERAL = [

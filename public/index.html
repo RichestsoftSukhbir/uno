@@ -19,7 +19,7 @@
     <section id="screen-home" class="screen active">
       <!-- sticky nav -->
       <nav class="lp-nav" id="lpNav">
-        <a class="lp-brand" href="#" data-scroll="top"><img class="uni-uno" src="img/uno-logo.svg" alt="UNO"><span class="uni-uno">ARENA</span><span class="uni-desi lp-brand-desi"><b>Desi</b> Patti</span></a>
+        <a class="lp-brand" href="#" data-scroll="top"><img class="uni-uno" src="img/uno-logo.svg" alt="UNO"><span class="uni-uno">ARENA</span><span class="uni-desi lp-brand-desi"><span class="hall-indian"><b>Desi</b> Patti</span><span class="hall-pro"><b>Card</b> Room</span></span></a>
         <div class="lp-links">
           <a href="#" data-scroll="modes">Game modes</a>
           <a href="#" data-scroll="how">How it works</a>
@@ -29,7 +29,7 @@
           <button data-u="uno">UNO</button><button data-u="desi">Desi Patti</button><i class="knob"></i>
         </div>
         <div class="theme-switch uni-desi" title="Desi theme">
-          <button data-t="indian">Indian</button><button data-t="pro">Pro</button>
+          <button data-t="indian" title="Desi games, Indian look">Desi</button><button data-t="pro" title="Professional card-room games">Pro</button>
         </div>
         <div class="lp-nav-r">
           <button class="lp-round" id="btnSettingsHome" title="Settings"><i data-icon="settings-01"></i></button>
@@ -42,27 +42,37 @@
         <div class="lp-hero-bg"><div class="lp-rays"></div><div class="lp-oval"></div><div class="home-cards" id="homeCards"></div></div>
         <div class="lp-hero-in">
           <div class="lp-copy">
-            <span class="lp-kicker"><i data-icon="party"></i> <span class="uni-uno">The ultimate card-game party</span><span class="uni-desi">Ghar ki baithak, ab online</span></span>
+            <span class="lp-kicker"><i data-icon="party"></i> <span class="uni-uno">The ultimate card-game party</span><span class="uni-desi"><span class="hall-indian">Ghar ki baithak, ab online</span><span class="hall-pro">The professional card room</span></span></span>
             <img class="lp-logo uni-uno" src="img/uno-logo.svg" alt="UNO">
             <div class="lp-arena uni-uno">ARENA</div>
-            <div class="desi-mark uni-desi"><span class="dm-hindi">देसी पत्ती</span><span class="dm-en">DESI PATTI</span></div>
+            <div class="desi-mark uni-desi"><span class="dm-hindi">देसी पत्ती</span><span class="dm-en"><span class="hall-indian">DESI PATTI</span><span class="hall-pro">CARD ROOM</span></span></div>
             <p class="lp-sub uni-uno">Classic, Flip, No Mercy, Liar's, Dare, DOS and more &mdash; in real 3D.
               Battle smart CPUs, pass one phone around, or invite friends online.</p>
-            <p class="lp-sub uni-desi">Bhabhi, Bluff, Seep, Satte Pe Satta, Gadha Chor, Teen Patti and Court Piece &mdash; the card games
+            <p class="lp-sub uni-desi hall-pro">Texas Hold'em, Blackjack, Indian Rummy and Twenty-Nine &mdash; the classics of the card room,
+              dealt in real 3D with sharp CPU players, online tables and a live scoreboard. Chips only, never real money.</p>
+            <p class="lp-sub uni-desi hall-indian">Bhabhi, Bluff, Seep, Satte Pe Satta, Gadha Chor, Teen Patti and Court Piece &mdash; the card games
               of every Indian family gathering, with real 3D cards, clever CPUs and online rooms.</p>
             <div class="lp-ctas">
               <button class="cta cta-yellow cta-lg" id="btnQuick"><span class="cta-ic"><i data-icon="flash"></i></span><span><b>Quick Play</b><small>vs 3 CPUs</small></span></button>
               <button class="cta cta-blue cta-lg" id="btnOnline"><span class="cta-ic"><i data-icon="globe"></i></span><span><b>Play Online</b><small>rooms &amp; invite links</small></span></button>
               <button class="cta cta-green cta-lg" id="btnPassPlay"><span class="cta-ic"><i data-icon="smart-phone-01"></i></span><span><b>Pass &amp; Play</b><small>one device, many friends</small></span></button>
             </div>
-            <button class="lp-howto" id="btnHowTo"><i data-icon="book-open-01"></i> <span class="uni-uno">New to UNO? Learn the rules with animated demos</span><span class="uni-desi">Forgot the rules? Every game has a guide with animated demos</span></button>
+            <button class="lp-howto" id="btnHowTo"><i data-icon="book-open-01"></i> <span class="uni-uno">New to UNO? Learn the rules with animated demos</span><span class="uni-desi"><span class="hall-indian">Forgot the rules? Every game has a guide with animated demos</span><span class="hall-pro">New to a table? Every game has a full rules guide</span></span></button>
           </div>
           <div class="lp-stage" id="lpStage">
             <div class="lp-fan" id="lpFan"></div>
             <div class="lp-sticker">UNO!</div>
           </div>
         </div>
-        <div class="lp-features uni-desi">
+        <div class="lp-features uni-desi hall-pro">
+          <span><i data-icon="cards-01"></i> 4 pro games</span>
+          <span><i data-icon="robot-01"></i> Smart CPU players</span>
+          <span><i data-icon="globe"></i> Online tables</span>
+          <span><i data-icon="smart-phone-01"></i> Pass &amp; play</span>
+          <span><i data-icon="champion"></i> Live scoreboard</span>
+          <span><i data-icon="sparkles"></i> Chips only &mdash; no real money</span>
+        </div>
+        <div class="lp-features uni-desi hall-indian">
           <span><i data-icon="cards-01"></i> 7 desi games</span>
           <span><i data-icon="robot-01"></i> Smart CPU players</span>
           <span><i data-icon="globe"></i> Online rooms</span>
@@ -83,7 +93,8 @@
       <!-- modes -->
       <section class="lp-section" id="lpModes">
         <div class="lp-sec-head uni-uno"><span class="lp-pill">Pick your poison</span><h2>Choose a game mode</h2><p>Every official twist on the world's favourite card game &mdash; with all the real rules.</p></div>
-        <div class="lp-sec-head uni-desi"><span class="lp-pill">Khel shuru karein</span><h2>Choose your game</h2><p>The classics of every Diwali night, train journey and summer vacation &mdash; with the house rules written down.</p></div>
+        <div class="lp-sec-head uni-desi hall-pro"><span class="lp-pill">Take a seat</span><h2>Choose your table</h2><p>Poker, blackjack, rummy and 29 &mdash; the card-room favourites, with the house rules written down.</p></div>
+        <div class="lp-sec-head uni-desi hall-indian"><span class="lp-pill">Khel shuru karein</span><h2>Choose your game</h2><p>The classics of every Diwali night, train journey and summer vacation &mdash; with the house rules written down.</p></div>
         <div class="mode-grid" id="variantGrid"></div>
       </section>
 
@@ -91,9 +102,9 @@
       <section class="lp-section lp-how" id="lpHow">
         <div class="lp-sec-head"><span class="lp-pill">Easy as 1, 2, 3</span><h2>How it works</h2></div>
         <div class="how-grid">
-          <div class="how-step"><img class="how-card" data-face="r1" alt="1"><h3>Pick a <span class="uni-uno">mode</span><span class="uni-desi">game</span></h3><p class="uni-uno">Classic for beginners, No Mercy for the brave, Liar's for the sneaky.</p><p class="uni-desi">Bhabhi for laughs, Seep for the strategists, Teen Patti for the bold.</p></div>
+          <div class="how-step"><img class="how-card" data-face="r1" alt="1"><h3>Pick a <span class="uni-uno">mode</span><span class="uni-desi">game</span></h3><p class="uni-uno">Classic for beginners, No Mercy for the brave, Liar's for the sneaky.</p><p class="uni-desi hall-indian">Bhabhi for laughs, Seep for the strategists, Teen Patti for the bold.</p><p class="uni-desi hall-pro">Hold'em for the patient, Blackjack for the quick, Rummy and 29 for the thinkers.</p></div>
           <div class="how-step"><img class="how-card" data-face="y2" alt="2"><h3>Gather players</h3><p>Add CPUs, share one phone around the room, or send an invite link to friends and family.</p></div>
-          <div class="how-step"><img class="how-card" data-face="g3" alt="3"><h3 class="uni-uno">Shout UNO!</h3><h3 class="uni-desi">Shabash!</h3><p class="uni-uno">Match colours and numbers, drop action cards &mdash; and don't forget to call it!</p><p class="uni-desi">Follow suit, call the bluff, sweep the floor &mdash; and claim the bragging rights.</p></div>
+          <div class="how-step"><img class="how-card" data-face="g3" alt="3"><h3 class="uni-uno">Shout UNO!</h3><h3 class="uni-desi hall-indian">Shabash!</h3><h3 class="uni-desi hall-pro">Take the pot</h3><p class="uni-uno">Match colours and numbers, drop action cards &mdash; and don't forget to call it!</p><p class="uni-desi hall-indian">Follow suit, call the bluff, sweep the floor &mdash; and claim the bragging rights.</p><p class="uni-desi hall-pro">Read the table, play the odds, make your contract &mdash; and stack the chips.</p></div>
         </div>
         <div class="lp-final">
           <h2>Ready to play your first card?</h2>
@@ -183,7 +194,7 @@
 
       <div class="hud-top">
         <button class="btn icon glass" id="btnMenu" title="Menu (Esc)"><i data-icon="menu-01"></i></button>
-        <div class="hud-title"><img class="hud-logo" src="img/uno-logo.svg" alt="UNO"><span class="hud-desi"><b>देसी</b>Patti</span><div class="hud-name"><b id="hudVariant"></b><span id="hudRound"></span></div></div>
+        <div class="hud-title"><img class="hud-logo" src="img/uno-logo.svg" alt="UNO"><span class="hud-desi"><span class="hall-indian"><b>देसी</b>Patti</span><span class="hall-pro"><b>CARD</b>ROOM</span></span><div class="hud-name"><b id="hudVariant"></b><span id="hudRound"></span></div></div>
         <div class="hud-top-r">
           <button class="btn icon glass" id="btnLog" title="Game log"><i data-icon="scroll-text"></i></button>
           <button class="btn icon glass hidden" id="btnChat" title="Chat"><i data-icon="bubble-chat"></i><i class="dot hidden" id="chatDot"></i></button>
@@ -194,6 +205,7 @@
       </div>
 
       <div class="hud-status" id="hudStatus"></div>
+      <div class="live-board hidden" id="liveBoard"></div>
       <div class="timer-bar hidden" id="timerBar"><i></i></div>
 
       <div class="me-panel" id="mePanel">
@@ -237,6 +249,7 @@
   <script src="vendor/gsap.min.js"></script>
   <script src="js/shared/engine.js"></script>
   <script src="js/shared/patti.js"></script>
+  <script src="js/shared/pro.js"></script>
   <script src="js/shared/bots.js"></script>
   <script src="js/shared/controller.js"></script>
   <script src="js/client/icons.js"></script>

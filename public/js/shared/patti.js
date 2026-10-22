@@ -38,6 +38,12 @@
     potLimit: { label: 'Pot limit (forces a show)', type: 'number', min: 100, max: 1000000, step: 100 },
     sideShow: { label: 'Allow side show', type: 'bool' },
     // Bhabhi house rule: what happens when a player's final card can't be beaten by the next player
+    scoring: { label: 'Scoring', type: 'select', choices: [['100', '100 points (spades, aces, 10 of diamonds)'], ['30', 'Punjabi 30 points (10♦ 12, 9♠ 9, aces, majority)']] },
+    match: { label: 'Match', type: 'select', choices: [['rounds', 'Fixed number of rounds'], ['baazi', 'Baazi - first side to lead by 100 (30 in Punjabi scoring)']] },
+    opening: { label: 'Opening card', type: 'select', choices: [['7H', '7 of Hearts opens'], ['7D', '7 of Diamonds opens'], ['any', 'Any seven opens (first player to hold one)']] },
+    tpVariant: { label: 'Variant', type: 'select', choices: [['classic', 'Classic - best hand wins'], ['muflis', 'Muflis - lowest hand wins']] },
+    cpStyle: { label: 'Style', type: 'select', choices: [['standard', 'Standard - each trick is collected'], ['doublesir', 'Double Sir - win two tricks in a row to collect the centre']] },
+    openingTrick: { label: 'First trick', type: 'select', choices: [['immune', 'Always discarded - no thulla on the first trick'], ['thulla', 'Normal - a thulla counts from the first trick']] },
     lastCard: { label: 'Last card must be beaten', type: 'select', choices: [['trick', 'On - next player takes the trick'], ['card', 'On - next player takes that card'], ['off', 'Off (classic)']] }
   };
   /*
@@ -53,29 +59,29 @@
   var GAMES = {
     bhabhi: { id: 'bhabhi', universe: 'desi', name: 'Bhabhi', short: 'Bhabhi', players: [3, 8], accent: '#c1121f', sig: { s: 'S', r: 'A' },
       tagline: 'Follow suit or slip in a "thulla" - the last one left holding cards is the Bhabhi!',
-      defaults: { rounds: 1, lastCard: 'trick', turnTimer: 30 }, options: ['rounds', 'lastCard', 'turnTimer'] },
+      defaults: { rounds: 1, openingTrick: 'immune', lastCard: 'trick', turnTimer: 30 }, options: ['rounds', 'openingTrick', 'lastCard', 'turnTimer'] },
     bluff: { id: 'bluff', universe: 'desi', name: 'Bluff', short: 'Bluff', players: [3, 8], accent: '#7b2cbf', sig: { s: 'H', r: 'K' },
       tagline: 'Play cards face-down, claim a rank and lie with a straight face. "Bluff!"',
       defaults: { rounds: 1, decks: '1', turnTimer: 30 }, options: ['rounds', 'decks', 'turnTimer'] },
     seep: { id: 'seep', universe: 'desi', name: 'Seep (Sweep)', short: 'Seep', players: [2, 4], allowed: [2, 4], accent: '#2a9d8f', sig: { s: 'D', r: '10' },
       tagline: 'Build houses, capture by value and sweep the floor clean for 50 points.',
-      defaults: { rounds: 1, turnTimer: 45 }, options: COMMON,
+      defaults: { rounds: 1, scoring: '100', match: 'rounds', turnTimer: 45 }, options: ['rounds', 'scoring', 'match', 'turnTimer'],
       // turn pacing (ms): CPUs think a little longer, and every move gets a beat to settle on the table
       pace: { botDelay: 1100, settle: 450 } },
     sevens: { id: 'sevens', universe: 'desi', name: 'Satte Pe Satta', short: 'Satte Pe Satta', players: [3, 8], accent: '#e76f51', sig: { s: 'H', r: '7' },
       tagline: 'Sevens open the rows - build each suit up and down. First to empty the hand wins.',
-      defaults: { rounds: 1, turnTimer: 30 }, options: COMMON },
+      defaults: { rounds: 1, opening: '7H', turnTimer: 30 }, options: ['rounds', 'opening', 'turnTimer'] },
     gadha: { id: 'gadha', universe: 'desi', name: 'Gadha Chor', short: 'Gadha Chor', players: [3, 8], accent: '#6c757d', sig: { s: 'C', r: 'Q' },
       tagline: 'Pull cards from your neighbour, throw away pairs - don\'t be the Gadha left with the odd card!',
       defaults: { rounds: 1, turnTimer: 30 }, options: COMMON },
     teenpatti: { id: 'teenpatti', universe: 'desi', name: 'Teen Patti', short: 'Teen Patti', players: [2, 7], accent: '#d4a017', sig: { s: 'S', r: 'K' },
       tagline: 'Three cards, blind or seen, chaal or pack. Points only - no real money.',
-      defaults: { rounds: 5, chips: 1000, boot: 10, potLimit: 2000, sideShow: true, turnTimer: 30 }, options: ['rounds', 'chips', 'boot', 'potLimit', 'sideShow', 'turnTimer'] },
+      defaults: { rounds: 5, tpVariant: 'classic', chips: 1000, boot: 10, potLimit: 2000, sideShow: true, turnTimer: 30 }, options: ['rounds', 'tpVariant', 'chips', 'boot', 'potLimit', 'sideShow', 'turnTimer'] },
     courtpiece: { id: 'courtpiece', universe: 'desi', name: 'Court Piece (Rang)', short: 'Court Piece', players: [4, 4], accent: '#264653', sig: { s: 'D', r: 'J' },
       tagline: 'Teams of two, one trump suit, 13 tricks. First team to 7 wins - take all 7 for a Kot!',
-      defaults: { rounds: 5, turnTimer: 30 }, options: COMMON }
+      defaults: { rounds: 5, cpStyle: 'standard', turnTimer: 30 }, options: ['rounds', 'cpStyle', 'turnTimer'] }
   };
-  Object.keys(GAMES).forEach(function (id) { GAMES[id].fixed = {}; });
+  Object.keys(GAMES).forEach(function (id) { GAMES[id].fixed = {}; GAMES[id].hall = 'indian'; });
 
   /* ================================================================== */
   /* shared base                                                         */
@@ -216,6 +222,7 @@
         };
       }),
       legal: viewer != null && this.players[viewer] ? this.legalActions(viewer) : [],
+      scoreboard: this.scoreboard ? this.scoreboard(viewer) : null,
       zones: [], buttons: [], select: null, prompt: null, status: '',
       roundResult: this.roundResult, gameOver: this.gameOver, log: this.log.slice(-30)
     }, extra || {});
@@ -278,7 +285,13 @@
     var led = this.trick.length ? this.trick[0].c.s : null;
     this.trick.push({ p: p, c: c });
     this.emit({ t: 'play', p: p, id: c.id, face: { s: c.s, r: c.r } });
-    var thulla = led && c.s !== led;
+    var offSuit = led && c.s !== led;
+    // opening-trick immunity: on the first trick an off-suit card doesn't stop it, the whole trick is discarded
+    var thulla = offSuit && !(this.firstTrick && this.o.openingTrick !== 'thulla');
+    if (offSuit && !thulla) {
+      this.voids[p][led] = true;
+      this.note(this.pname(p) + ' has no ' + SUIT_NAME[led] + ' - first trick, so no thulla.');
+    }
     if (thulla) {
       this.voids[p][led] = true;
       this.note(this.pname(p) + ' can\'t follow ' + SUIT_NAME[led] + ' - THULLA with ' + cname(c) + '!');
@@ -295,7 +308,6 @@
       return;
     }
     this.current = this.next(p, function (pl) { return !pl.out; });
-    this.firstTrick = this.firstTrick && false;
   };
   // a player has just played their final card: can the next player beat it?
   BH.lastCardCheck = function (p, c) {
@@ -330,7 +342,8 @@
     } else {
       this.trick.forEach(function (t) { self.outPile.push(t.c); });
       this.emit({ t: 'trickOut', ids: ids });
-      this.note('Everyone followed suit - the trick goes out.');
+      var ledS = this.trick.length ? this.trick[0].c.s : null;
+      this.note(this.trick.some(function (t) { return t.c.s !== ledS; }) ? 'First trick - it goes out, no thulla.' : 'Everyone followed suit - the trick goes out.');
     }
     this.trick = [];
     this.trickSize = 0;
@@ -543,12 +556,25 @@
     var order = this.dealAll(this.deck(1), this.dealer + 1);
     this.emit({ t: 'deal', order: order, dealer: this.dealer, round: this.round });
     this.dealer = (this.dealer + 1) % this.players.length;
-    this.players.forEach(function (pl) { if (pl.hand.some(function (c) { return c.s === 'H' && c.r === '7'; })) self.current = pl.id; });
+    var open = this.o.opening || '7H';
+    if (open === 'any') {
+      // the first player from the dealer's left who holds a seven opens with it
+      this.current = this.dealer;
+      for (var k = 0; k < this.players.length; k++) {
+        var q = (this.dealer + k) % this.players.length;
+        if (this.players[q].hand.some(function (c) { return c.r === '7'; })) { this.current = q; break; }
+      }
+      this.note('Round ' + this.round + ' - ' + this.pname(this.current) + ' opens with a seven.');
+    } else {
+      var os = open.slice(-1);
+      this.players.forEach(function (pl) { if (pl.hand.some(function (c) { return c.s === os && c.r === '7'; })) self.current = pl.id; });
+      this.note('Round ' + this.round + ' - ' + this.pname(this.current) + ' has the 7 of ' + SUIT_NAME[os] + ' and opens.');
+    }
     this.phase = 'play';
-    this.note('Round ' + this.round + ' - ' + this.pname(this.current) + ' has the 7 of Hearts and opens.');
   };
   SV.playable = function (c) {
-    if (!this.board.length) return c.s === 'H' && c.r === '7';
+    var open = this.o.opening || '7H';
+    if (!this.board.length) return c.r === '7' && (open === 'any' || c.s === open.slice(-1));
     var row = this.rows[c.s];
     if (!row) return c.r === '7';
     var v = low(c.r);
@@ -780,6 +806,8 @@
     for (var k = 1; k < n; k++) { var j = ((p - k) % n + n) % n; var q = this.players[j]; if (!q.out && q.tag !== 'PACKED') return j; }
     return null;
   };
+  // Muflis turns the ranking upside down: the lowest hand wins
+  TP.cmp = function (a, b) { var d = cmpHands(a, b); return this.o.tpVariant === 'muflis' ? -d : d; };
   TP.autoNext = function () { return this.phase === 'showdown' ? { type: 'collect', key: 'collect' } : null; };
   TP.bet = function (p, amt) {
     amt = Math.min(amt, this.players[p].score);
@@ -819,8 +847,9 @@
   TP.forceShow = function (why) {
     var live = this.live();
     var best = live[0];
-    live.forEach(function (pl) { if (cmpHands(pl.hand, best.hand) > 0) best = pl; });
-    var ties = live.filter(function (pl) { return cmpHands(pl.hand, best.hand) === 0; });
+    var self = this;
+    live.forEach(function (pl) { if (self.cmp(pl.hand, best.hand) > 0) best = pl; });
+    var ties = live.filter(function (pl) { return self.cmp(pl.hand, best.hand) === 0; });
     this.show = { players: live.map(function (pl) { return pl.id; }), winners: ties.map(function (pl) { return pl.id; }), why: why };
     this.emit({ t: 'showdown', players: this.show.players, winners: this.show.winners });
     this.phase = 'showdown';
@@ -838,7 +867,7 @@
   TP.on_accept = function (p) {
     var sd = this.side;
     var A = this.players[sd.from], Bp = this.players[sd.to];
-    var loser = cmpHands(A.hand, Bp.hand) > 0 ? Bp : A;
+    var loser = this.cmp(A.hand, Bp.hand) > 0 ? Bp : A;
     loser.tag = 'PACKED';
     this.emit({ t: 'sidecompare', a: sd.from, b: sd.to, loser: loser.id });
     this.note('Side show: ' + this.pname(sd.from) + ' vs ' + this.pname(sd.to) + ' - ' + loser.name + ' loses and packs.');
@@ -897,6 +926,7 @@
     Base.call(this, id, o, s, r);
     this.players.forEach(function (p) { p.team = p.id % 2; });
     this.teamScore = [0, 0];
+    this.streak = { team: null, n: 0 };   // a Court is also won by taking 7 hands in a row
     this.startRound();
   }
   CourtPiece.prototype = Object.create(B);
@@ -911,6 +941,10 @@
     this.wonPiles = [[], []];
     this.trump = null;
     this.firstSeven = null;
+    this.center = [];            // Double Sir: tricks waiting in the centre
+    this.centerTricks = 0;
+    this.lastWinner = null;
+    this.played = 0;
     this.caller = (this.dealer + 1) % 4;
     // the trump caller sees five cards first
     var order = [];
@@ -959,8 +993,11 @@
     this.current = best.p;
     if (best.c.s === tr && led !== tr) this.emit({ t: 'cut', p: best.p });
   };
+  CP.doubleSir = function () { return this.o.cpStyle === 'doublesir'; };
   CP.on_collect = function () {
     var w = this.winner, team = w % 2, self = this;
+    this.played++;
+    if (this.doubleSir()) return this.collectDoubleSir(w);
     this.tricks[team]++;
     this.trick.forEach(function (t) { self.wonPiles[team].push(t.c); });
     this.emit({ t: 'trickWon', p: w, ids: this.trick.map(function (t) { return t.c.id; }) });
@@ -970,21 +1007,53 @@
     this.phase = 'play';
     this.current = w;
   };
+  // Double Sir: tricks pile up in the centre until the same player wins two in a row
+  CP.collectDoubleSir = function (w) {
+    var self = this, team = w % 2;
+    this.trick.forEach(function (t) { self.center.push(t.c); });
+    this.centerTricks++;
+    var ids = this.trick.map(function (t) { return t.c.id; });
+    this.trick = [];
+    var last = this.played >= 13;
+    if (this.lastWinner === w || last) {
+      var n = this.centerTricks, got = this.center;
+      this.tricks[team] += n;
+      got.forEach(function (c) { self.wonPiles[team].push(c); });
+      this.emit({ t: 'trickWon', p: w, ids: got.map(function (c) { return c.id; }) });
+      this.note(this.pname(w) + (last ? ' wins the last trick and takes the centre' : ' wins two in a row and collects the centre') + ' - ' + n + ' trick' + (n > 1 ? 's' : '') + ' (' + this.teamName(team) + ': ' + this.tricks[team] + ').');
+      this.center = [];
+      this.centerTricks = 0;
+      this.lastWinner = null;
+    } else {
+      this.emit({ t: 'trickWon', p: w, ids: ids, center: true });
+      this.note(this.pname(w) + ' wins the trick - it stays in the centre (' + this.centerTricks + ' waiting).');
+      this.lastWinner = w;
+    }
+    if (last) return this.endHand(this.tricks[0] > this.tricks[1] ? 0 : 1);
+    this.phase = 'play';
+    this.current = w;
+  };
   CP.teamName = function (t) { return this.pname(t) + ' & ' + this.pname(t + 2); };
   CP.endHand = function (team) {
     var kot = this.tricks[1 - team] === 0;
     var pts = kot ? 3 : 1;
+    // a Court is also scored by winning seven hands in a row
+    if (this.streak.team === team) this.streak.n++; else this.streak = { team: team, n: 1 };
+    var court = this.streak.n >= 7;
+    if (court) { pts += 3; this.streak = { team: null, n: 0 }; }
     this.teamScore[team] += pts;
-    if (kot) this.emit({ t: 'kot', team: team });
+    if (kot || court) this.emit({ t: 'kot', team: team });
     var self = this;
     this.players.forEach(function (pl) { pl.score = self.teamScore[pl.team]; });
     var winners = [team, team + 2];
-    this.finishRound(this.teamName(team) + (kot ? ' win with a KOT - all 7 tricks!' : ' win the hand ' + this.tricks[team] + '-' + this.tricks[1 - team] + '.'), winners, null, { team: team, kot: kot });
+    var all = this.doubleSir() ? 'all 13 tricks' : 'all 7 tricks';
+    this.finishRound(this.teamName(team) + (kot ? ' win with a KOT - ' + all + '!' : ' win the hand ' + this.tricks[team] + '-' + this.tricks[1 - team] + '.') + (court ? ' Seven hands in a row - a COURT!' : ''), winners, null, { team: team, kot: kot, court: court });
   };
   CP.view = function (viewer) {
     var self = this;
     var led = this.trick.length ? this.trick[0].c.s : null;
     var zones = [trickZone(this, this.trump ? 'Trump ' + SYM[this.trump] : '')];
+    if (this.doubleSir()) zones.push({ id: 'center', type: 'pile', pos: 'upper', faceUp: false, label: this.centerTricks ? 'Centre · ' + this.centerTricks + ' trick' + (this.centerTricks > 1 ? 's' : '') + (this.lastWinner != null ? ' · ' + this.pname(this.lastWinner) + ' on 1' : '') : '', cards: this.center.slice(-8).map(function (c) { return { id: c.id, a: null, b: 'back' }; }) });
     [0, 1].forEach(function (t) {
       zones.push({ id: 'won' + t, type: 'won', p: t, label: self.tricks[t] + ' tricks', cards: self.wonPiles[t].slice(-4).map(function (c) { return { id: c.id, a: null, b: 'back' }; }) });
     });
@@ -996,38 +1065,300 @@
     });
   };
 
+  /* ---- live scoreboards (shown on screen while playing) ---- */
+  function cardsLeftRows(g, extra) {
+    return g.players.map(function (pl) {
+      var x = extra ? extra(pl) : {};
+      return assign({ label: pl.name, p: pl.id, value: pl.out ? (pl.tag || 'OUT') : pl.hand.length + (pl.hand.length === 1 ? ' card' : ' cards'), good: pl.out && pl.tag !== 'BHABHI' && pl.tag !== 'GADHA', bad: pl.tag === 'BHABHI' || pl.tag === 'GADHA' }, x);
+    });
+  }
+  BH.scoreboard = function () {
+    var self = this;
+    return { title: 'Cards left', rows: cardsLeftRows(this, function (pl) { return self.loss[pl.id] ? { sub: 'Bhabhi ' + self.loss[pl.id] + 'x' } : {}; }),
+      foot: (this.firstTrick ? 'First trick - no thulla' : 'Out pile ' + this.outPile.length) + ' · Round ' + this.round + (this.o.rounds > 1 ? '/' + this.o.rounds : '') };
+  };
+  BL.scoreboard = function () {
+    return { title: 'Cards left', rows: cardsLeftRows(this, function (pl) { return { sub: pl.score ? 'Wins ' + pl.score : '' }; }),
+      foot: 'Pile ' + this.pile.length + (this.claim ? ' · claimed ' + this.claim + 's' : ' · new pile') };
+  };
+  SV.scoreboard = function () {
+    return { title: 'Cards left', rows: cardsLeftRows(this, function (pl) { return { sub: pl.score ? 'Score ' + pl.score : '' }; }), foot: 'Round ' + this.round + '/' + this.o.rounds };
+  };
+  GC.scoreboard = function () {
+    return { title: 'Cards left', rows: cardsLeftRows(this), foot: 'Pairs thrown ' + this.pairs.length / 2 };
+  };
+  TP.scoreboard = function () {
+    var self = this;
+    return { title: 'Chips', rows: this.players.map(function (pl) {
+      return { label: pl.name, p: pl.id, value: '\u25C9 ' + pl.score, sub: pl.out ? 'Out' : pl.tag === 'PACKED' ? 'Packed' : pl.seen ? 'Seen' : 'Blind', bad: pl.out || pl.tag === 'PACKED' };
+    }), foot: 'Pot ' + this.pot + ' · Stake ' + this.stake + ' · Round ' + this.round + '/' + this.o.rounds };
+  };
+  CP.scoreboard = function () {
+    var self = this;
+    var ds = this.doubleSir();
+    return { title: ds ? 'Tricks collected' : 'Tricks this hand', rows: [0, 1].map(function (t) {
+      return { label: self.teamName(t), side: t, value: self.tricks[t] + (ds ? '' : ' / 7'), sub: 'Points ' + self.teamScore[t] + (self.streak.team === t && self.streak.n > 1 ? ' · ' + self.streak.n + ' hands in a row' : '') };
+    }), foot: (this.trump ? 'Trump ' + SYM[this.trump] : 'Trump not chosen yet') + (ds ? ' · Centre ' + this.centerTricks : '') + ' · Hand ' + this.round + '/' + this.o.rounds };
+  };
+
   /* ================================================================== */
-  /* SEEP                                                                */
+  /* SEEP (Sweep)                                                        */
   /* ================================================================== */
+  /*
+   * Rules follow the 100-point northern profile on pagat.com/fishing/seep.html, with the
+   * Punjabi 30-point profile as an option:
+   *  - capture values A=1 ... K=13; a capture takes every matching item on the floor (houses of that
+   *    value plus the most loose cards that split into groups of that value);
+   *  - houses are 9..13; the builder must keep a card of the house value;
+   *  - a card (plus loose cards) equal to a house's value cements it (pakka); playing a card onto loose
+   *    cards that make two or more groups of its value builds a pakka house straight away ("9 on 9");
+   *  - a second house of an existing value merges into it, pakka;
+   *  - an ordinary house can be raised (broken) with one card from hand by anyone but its owners,
+   *    never with loose cards; pakka houses can't be raised;
+   *  - adding to an opponent's house needs a card of its value and makes you an owner; adding to your
+   *    partner's house needs neither;
+   *  - an owner may not play their last card of a house value except to capture that house;
+   *  - a player whose side has a house on the floor may not throw a loose card if anything else is legal.
+   */
   function seepPts(c) { if (c.s === 'S') return low(c.r); if (c.r === 'A') return 1; if (c.s === 'D' && c.r === '10') return 6; return 0; }
+  function seep30Pts(c) { if (c.s === 'D' && c.r === '10') return 12; if (c.s === 'S' && c.r === '9') return 9; if (c.s === 'S' && c.r === '2') return 1; if (c.r === 'A') return 1; return 0; }
+  // can these values be split into groups that each add up to v? (every value used)
+  function splitsInto(vals, v) {
+    var total = vals.reduce(function (a, b) { return a + b; }, 0);
+    if (!vals.length || total % v) return false;
+    var sorted = vals.slice().sort(function (a, b) { return b - a; });
+    if (sorted[0] > v) return false;
+    var bins = [];
+    for (var k = 0; k < total / v; k++) bins.push(0);
+    function place(i) {
+      if (i === sorted.length) return true;
+      for (var b = 0; b < bins.length; b++) {
+        if (bins[b] + sorted[i] > v) continue;
+        bins[b] += sorted[i];
+        if (place(i + 1)) return true;
+        bins[b] -= sorted[i];
+        if (!bins[b]) break;                  // empty bins are interchangeable
+      }
+      return false;
+    }
+    return place(0);
+  }
+  /*
+   * The rule core, shared by the engine, the CPUs and the tap-to-place interface. ctx = {
+   *   floor: [{kind:'card', c:{id,s,r}} | {kind:'house', value, pakka, owners:[pid], cards}],
+   *   hand: [{id,s,r}], p, sameSide(a,b), phase ('bidplay'|'play'), bid }
+   */
+  var SeepRules = {
+    val: function (it) { return it.kind === 'card' ? low(it.c.r) : it.value; },
+    holds: function (ctx, v, exceptId) { return ctx.hand.some(function (c) { return c.id !== exceptId && low(c.r) === v; }); },
+    // the forced capture with card value v: all houses of v + the most loose cards in groups of v
+    capture: function (ctx, v) {
+      var loose = [], houses = [];
+      ctx.floor.forEach(function (it, i) { if (it.kind === 'card') loose.push(i); else if (it.value === v) houses.push(i); });
+      var vals = loose.map(function (i) { return low(ctx.floor[i].c.r); });
+      var best = [];
+      function search(avail, picked) {
+        if (picked.length > best.length) best = picked.slice();
+        var first = -1;
+        for (var a = 0; a < avail.length; a++) if (avail[a]) { first = a; break; }
+        if (first < 0) return;
+        (function grp(idx, sum, group) {
+          if (sum === v) { var rest = avail.slice(); group.forEach(function (g) { rest[g] = false; }); search(rest, picked.concat(group)); return; }
+          for (var k = idx; k < avail.length; k++) if (avail[k] && sum + vals[k] <= v) { group.push(k); grp(k + 1, sum + vals[k], group); group.pop(); }
+        })(first + 1, vals[first], [first]);
+        var skip = avail.slice(); skip[first] = false;
+        search(skip, picked);
+      }
+      if (loose.length <= 14) search(loose.map(function () { return true; }), []);
+      return houses.concat(best.map(function (k) { return loose[k]; })).sort(function (a, b) { return a - b; });
+    },
+    isOwner: function (h, p) { return (h.owners || []).indexOf(p) >= 0; },
+    // everything that putting card c onto exactly the floor items `items` could mean (not capture)
+    interpret: function (ctx, c, items) {
+      var self = SeepRules, out = [];
+      var cv = low(c.r), p = ctx.p;
+      var H = null, L = [];
+      for (var k = 0; k < items.length; k++) {
+        var it = ctx.floor[items[k]];
+        if (!it) return out;
+        if (it.kind === 'house') { if (H != null) return out; H = items[k]; } else L.push(items[k]);
+      }
+      var lvals = L.map(function (i) { return low(ctx.floor[i].c.r); });
+      var other = function (V, skip) { for (var i = 0; i < ctx.floor.length; i++) if (i !== skip && ctx.floor[i].kind === 'house' && ctx.floor[i].value === V) return i; return -1; };
+      if (H != null) {
+        var h = ctx.floor[H], hv = h.value;
+        var mine = self.isOwner(h, p);
+        var partners = !mine && ctx.sameSide && (h.owners || []).every(function (o) { return ctx.sameSide(o, p); });
+        // cement: card (+ loose cards) adding up to the house value, in groups
+        if (splitsInto([cv].concat(lvals), hv) && (partners || self.holds(ctx, hv, c.id)))
+          out.push({ type: 'cement', value: hv, house: H, items: items.slice(), joinOwner: !partners });
+        // raise (break) an ordinary house with one card from hand, never your own, never with loose cards
+        var nv = hv + cv;
+        if (!L.length && !h.pakka && !mine && nv >= 9 && nv <= 13 && self.holds(ctx, nv, c.id))
+          out.push({ type: 'raise', value: nv, house: H, items: items.slice(), merge: other(nv, H) });
+      } else if (L.length) {
+        var pieces = [cv].concat(lvals), total = pieces.reduce(function (a, b) { return a + b; }, 0);
+        for (var V = 9; V <= 13; V++) {
+          if (total % V || !splitsInto(pieces, V) || !self.holds(ctx, V, c.id)) continue;
+          out.push({ type: 'build', value: V, items: items.slice(), pakka: total / V >= 2, merge: other(V, -1) });
+        }
+      }
+      return out;
+    },
+    // a house owner must keep a card of its value until it is captured
+    keepsHouseCard: function (ctx, c, action) {
+      var cv = low(c.r);
+      for (var i = 0; i < ctx.floor.length; i++) {
+        var h = ctx.floor[i];
+        if (h.kind !== 'house' || h.value !== cv || !SeepRules.isOwner(h, ctx.p)) continue;
+        var left = ctx.hand.filter(function (x) { return low(x.r) === cv; }).length;
+        if (left > 1) continue;
+        if (!(action.type === 'capture' && action.items.indexOf(i) >= 0)) return false;
+      }
+      return true;
+    },
+    sideHasHouse: function (ctx) {
+      return ctx.floor.some(function (it) { return it.kind === 'house' && (it.owners || []).some(function (o) { return o === ctx.p || (ctx.sameSide && ctx.sameSide(o, ctx.p)); }); });
+    },
+    fitsBid: function (ctx, c, a) {
+      if (ctx.phase !== 'bidplay') return true;
+      if (a.type === 'capture' || a.type === 'throw') return low(c.r) === ctx.bid;
+      return a.value === ctx.bid;
+    },
+    label: function (ctx, c, a) {
+      var name = function (i) { var it = ctx.floor[i]; return it.kind === 'card' ? cname(it.c) : (it.pakka ? 'pakka ' : '') + 'house ' + it.value; };
+      if (a.type === 'capture') return 'Capture ' + a.items.map(name).join(' + ');
+      if (a.type === 'throw') return 'Throw ' + cname(c) + ' on the floor';
+      if (a.type === 'cement') return 'Add to ' + name(a.house) + ' - make it pakka' + (a.items.length > 1 ? ' (with ' + a.items.filter(function (i) { return i !== a.house; }).map(name).join(' + ') + ')' : '');
+      if (a.type === 'raise') return 'Break ' + name(a.house) + ' - raise it to ' + a.value + (a.merge >= 0 ? ' (joins house ' + a.value + ', pakka)' : '');
+      return (a.pakka ? 'Build a PAKKA house of ' : 'Build a house of ') + a.value + ' (' + [cname(c)].concat(a.items.map(name)).join(' + ') + ')' + (a.merge >= 0 && !a.pakka ? ' - joins house ' + a.value + ', pakka' : '');
+    },
+    finish: function (ctx, c, list) {
+      var self = SeepRules;
+      return list.filter(function (a) { return self.fitsBid(ctx, c, a) && self.keepsHouseCard(ctx, c, a); }).map(function (a) {
+        a.cardId = c.id;
+        a.label = self.label(ctx, c, a);
+        a.key = a.type[0] + c.id + '_' + a.items.join('.') + '_' + (a.value || '');
+        return a;
+      });
+    },
+    // every legal move for one card (deduplicated for menus and CPUs)
+    movesFor: function (ctx, c) {
+      var self = SeepRules, v = low(c.r), list = [];
+      var cap = self.capture(ctx, v);
+      if (cap.length) list.push({ type: 'capture', items: cap, value: v, sweep: cap.length === ctx.floor.length });
+      var loose = [], houses = [];
+      ctx.floor.forEach(function (it, i) { (it.kind === 'card' ? loose : houses).push(i); });
+      var n = Math.min(loose.length, 10), best = {};
+      // one entry per kind of move: the simplest way to do it (bigger combinations are made by tapping the floor)
+      var keep = function (a) {
+        var key = a.type + ':' + (a.house != null ? a.house : '') + ':' + a.value + ':' + (a.pakka ? 1 : 0);
+        if (!best[key] || best[key].items.length > a.items.length) best[key] = a;
+      };
+      for (var mask = 1; mask < (1 << n); mask++) {
+        var L = [];
+        for (var b = 0; b < n; b++) if (mask & (1 << b)) L.push(loose[b]);
+        self.interpret(ctx, c, L).forEach(keep);
+      }
+      houses.forEach(function (h) {
+        self.interpret(ctx, c, [h]).forEach(keep);
+        // cement with help from loose cards
+        for (var mask2 = 1; mask2 < (1 << Math.min(n, 6)); mask2++) {
+          var L2 = [h];
+          for (var b2 = 0; b2 < Math.min(n, 6); b2++) if (mask2 & (1 << b2)) L2.push(loose[b2]);
+          self.interpret(ctx, c, L2).forEach(function (a) { if (a.type === 'cement') keep(a); });
+        }
+      });
+      Object.keys(best).forEach(function (k) { list.push(best[k]); });
+      return self.finish(ctx, c, list);
+    },
+    // the options for card c placed on exactly these floor items (tap-to-place)
+    optionsAt: function (ctx, c, items) {
+      var self = SeepRules, v = low(c.r), list = [];
+      var cap = self.capture(ctx, v);
+      if (cap.length && items.length && items.every(function (i) { return cap.indexOf(i) >= 0; }))
+        list.push({ type: 'capture', items: cap, value: v, sweep: cap.length === ctx.floor.length });
+      self.interpret(ctx, c, items.slice().sort(function (a, b) { return a - b; })).forEach(function (a) { list.push(a); });
+      return self.finish(ctx, c, list);
+    },
+    throwAllowed: function (ctx, c, others) {
+      var t = { type: 'throw', items: [] };
+      if (!SeepRules.fitsBid(ctx, c, t) || !SeepRules.keepsHouseCard(ctx, c, t)) return false;
+      return !SeepRules.sideHasHouse(ctx) || !others;
+    },
+    // all legal moves for the player in ctx
+    legal: function (ctx) {
+      var self = SeepRules, out = [];
+      ctx.hand.forEach(function (c) { out = out.concat(self.movesFor(ctx, c)); });
+      var any = out.length > 0;
+      ctx.hand.forEach(function (c) {
+        if (self.throwAllowed(ctx, c, any)) out.push({ type: 'throw', cardId: c.id, items: [], key: 't' + c.id, label: self.label(ctx, c, { type: 'throw' }) });
+      });
+      if (!out.length) {
+        // nothing at all is legal (e.g. the bid card is protecting a house): let them throw anything
+        ctx.hand.forEach(function (c) { out.push({ type: 'throw', cardId: c.id, items: [], key: 't' + c.id, label: self.label(ctx, c, { type: 'throw' }) }); });
+      }
+      return out;
+    },
+    // turn a view into a rule context (used by the client)
+    fromView: function (v) {
+      var me = v.players[v.me];
+      var floorZone = (v.zones || []).filter(function (z) { return z.type === 'floor'; })[0];
+      var floor = (floorZone ? floorZone.items : []).map(function (it) {
+        if (it.kind === 'card') return { kind: 'card', c: { id: it.cv.id, s: it.cv.a.s, r: it.cv.a.r } };
+        return { kind: 'house', value: it.value, pakka: it.pakka, owners: it.owners || [], cards: it.cards };
+      });
+      return {
+        floor: floor, hand: me.hand.filter(function (c) { return c.a; }).map(function (c) { return { id: c.id, s: c.a.s, r: c.a.r }; }),
+        p: v.me, phase: v.phase, bid: v.bid,
+        sameSide: v.teams ? function (a, b) { return a % 2 === b % 2; } : null
+      };
+    }
+  };
+
   function Seep(id, o, s, r) {
     Base.call(this, id, o, s, r);
     this.teams = this.players.length === 4;
     this.players.forEach(function (p) { p.team = p.id % 2; });
     this.totals = [0, 0];
+    this.diff = 0;                 // baazi: running difference (side 0 minus side 1)
+    this.baazi = [0, 0];
+    if (this.o.match === 'baazi') this.o.rounds = 15;
     this.startRound();
   }
   Seep.prototype = Object.create(B);
   var SP = Seep.prototype;
+  SP.thirty = function () { return this.o.scoring === '30'; };
+  SP.pts = function (c) { return this.thirty() ? seep30Pts(c) : seepPts(c); };
   SP.side = function (p) { return this.teams ? p % 2 : p; };
+  SP.ctx = function (p) {
+    var self = this;
+    return { floor: this.floor, hand: this.players[p].hand, p: p, phase: this.phase, bid: this.bid,
+      sameSide: this.teams ? function (a, b) { return self.side(a) === self.side(b); } : null };
+  };
   SP.startRound = function () {
     var self = this;
     this.round++;
     this.players.forEach(function (p) { p.hand = []; p.tag = ''; });
-    this.floor = [];             // items: {kind:'card', c} | {kind:'house', value, pakka, owner, cards:[]}
+    this.floor = [];
     this.firstDealDone = false;
     this.bid = null;
     this.captured = [[], []];
     this.sweeps = [0, 0];
+    this.sweepPts = [0, 0];
     this.lastCapture = null;
+    this.bidder = (this.dealer + 1) % this.players.length;
     var guard = 0;
-    do {
+    while (guard++ < 200) {
       this.stock = this.deck(1);
-      this.bidder = (this.dealer + 1) % this.players.length;
       var four = this.stock.splice(-4);
-      guard++;
-      if (four.some(function (c) { return low(c.r) >= 9; }) || guard > 50) { this.players[this.bidder].hand = four; break; }
-    } while (true);
+      var floor = this.stock.splice(-4);
+      // the bidder needs a card of 9 or more to bid with
+      var canBid = four.some(function (c) { return low(c.r) >= 9; });
+      // Punjabi 30-point profile: redeal if the 10 of diamonds or 9 of spades is among the floor cards
+      var bad = this.thirty() && floor.some(function (c) { return (c.s === 'D' && c.r === '10') || (c.s === 'S' && c.r === '9'); });
+      if (canBid && !bad) { this.players[this.bidder].hand = four; this.floorNext = floor; break; }
+    }
     this.sortHand(this.bidder);
     this.emit({ t: 'deal', order: this.players[this.bidder].hand.map(function (c) { return [self.bidder, c.id]; }), dealer: this.dealer, round: this.round });
     this.dealer = (this.dealer + 1) % this.players.length;
@@ -1035,94 +1366,32 @@
     this.phase = 'bid';
     this.note('Round ' + this.round + ' of Seep. ' + this.pname(this.bidder) + ' looks at 4 cards and bids a house (9-13).');
   };
-  SP.valueOf = function (it) { return it.kind === 'card' ? low(it.c.r) : it.value; };
-  SP.holds = function (p, v, exceptId) { return this.players[p].hand.some(function (c) { return c.id !== exceptId && low(c.r) === v; }); };
-  SP.ownsHouse = function (p) { var s = this.side(p); var self = this; return this.floor.some(function (it) { return it.kind === 'house' && self.side(it.owner) === s; }); };
-  // best capture with a card of value v: houses of v + the largest set of loose cards that splits into groups summing to v
-  SP.captureSet = function (v) {
-    var loose = [], houses = [];
-    this.floor.forEach(function (it, i) { if (it.kind === 'card') loose.push(i); else if (it.value === v) houses.push(i); });
-    var self = this;
-    var vals = loose.map(function (i) { return self.valueOf(self.floor[i]); });
-    var best = [];
-    function search(avail, picked) {
-      // take one group summing to v from the remaining loose cards, recursively
-      if (picked.length > best.length) best = picked.slice();
-      var first = -1;
-      for (var a = 0; a < avail.length; a++) if (avail[a]) { first = a; break; }
-      if (first < 0) return;
-      // either the first available card joins a group, or it is skipped
-      function grp(idx, sum, group) {
-        if (sum === v) { var rest = avail.slice(); group.forEach(function (g) { rest[g] = false; }); search(rest, picked.concat(group)); return; }
-        for (var k = idx; k < avail.length; k++) if (avail[k] && sum + vals[k] <= v) { group.push(k); grp(k + 1, sum + vals[k], group); group.pop(); }
-      }
-      grp(first + 1, vals[first], [first]);
-      var skip = avail.slice(); skip[first] = false;
-      search(skip, picked);
-    }
-    if (loose.length <= 14) search(loose.map(function () { return true; }), []);
-    return houses.concat(best.map(function (k) { return loose[k]; }));
-  };
-  SP.movesFor = function (p, c) {
-    var self = this;
-    var v = low(c.r);
-    var moves = [];
-    var cap = this.captureSet(v);
-    if (cap.length) {
-      var lbl = cap.map(function (i) { var it = self.floor[i]; return it.kind === 'card' ? cname(it.c) : 'house ' + it.value; }).join(' + ');
-      var pts = cap.reduce(function (s, i) { var it = self.floor[i]; return s + (it.kind === 'card' ? seepPts(it.c) : it.cards.reduce(function (t, x) { return t + seepPts(x); }, 0)); }, seepPts(c));
-      moves.push({ type: 'capture', cardId: c.id, items: cap, key: 'c' + c.id, label: 'Capture ' + lbl, gain: pts, sweep: cap.length === this.floor.length });
-    }
-    // build a new house: card + loose cards totalling 9..13, and you must hold a card of that value
-    var loose = [];
-    this.floor.forEach(function (it, i) { if (it.kind === 'card') loose.push(i); });
-    var seenVal = {};
-    var n = Math.min(loose.length, 10);
-    for (var mask = 1; mask < (1 << n); mask++) {
-      var sum = v, idx = [];
-      for (var b = 0; b < n; b++) if (mask & (1 << b)) { sum += this.valueOf(this.floor[loose[b]]); idx.push(loose[b]); }
-      if (sum < 9 || sum > 13 || !this.holds(p, sum, c.id)) continue;
-      if (this.floor.some(function (it) { return it.kind === 'house' && it.value === sum; })) continue; // would merge - keep it simple: use cement instead
-      if (!seenVal[sum] || seenVal[sum].length < idx.length) seenVal[sum] = idx;
-    }
-    Object.keys(seenVal).forEach(function (sv) {
-      var idx = seenVal[sv];
-      moves.push({ type: 'build', cardId: c.id, items: idx, value: +sv, key: 'b' + c.id + '_' + sv, label: 'Build house of ' + sv + ' (' + [cname(c)].concat(idx.map(function (i) { return cname(self.floor[i].c); })).join(' + ') + ')' });
-    });
-    // raise an unbroken house, or cement (pakka) a house
-    this.floor.forEach(function (it, i) {
-      if (it.kind !== 'house') return;
-      var nv = it.value + v;
-      if (!it.pakka && nv >= 9 && nv <= 13 && self.holds(p, nv, c.id) && !self.floor.some(function (h2) { return h2.kind === 'house' && h2.value === nv; }))
-        moves.push({ type: 'raise', cardId: c.id, house: i, value: nv, key: 'r' + c.id + '_' + i, label: 'Raise house ' + it.value + ' to ' + nv });
-      if (v === it.value && self.holds(p, it.value, c.id))
-        moves.push({ type: 'cement', cardId: c.id, house: i, value: it.value, key: 'm' + c.id + '_' + i, label: 'Make house ' + it.value + ' pakka (cement)' });
-    });
-    if (!this.ownsHouse(p) || !moves.length) moves.push({ type: 'throw', cardId: c.id, key: 't' + c.id, label: 'Throw ' + cname(c) + ' on the floor' });
-    return moves;
-  };
   SP.legalFor = function (p) {
-    var self = this;
     if (this.phase === 'bid') {
       var vals = {};
       this.players[p].hand.forEach(function (c) { var v = low(c.r); if (v >= 9) vals[v] = true; });
       return Object.keys(vals).map(function (v) { return { type: 'bid', value: +v, key: 'bid' + v, label: 'Bid ' + v }; });
     }
-    var out = [];
-    this.players[p].hand.forEach(function (c) { out = out.concat(self.movesFor(p, c)); });
-    if (this.phase === 'bidplay') {
-      var bid = this.bid;
-      out = out.filter(function (m) { return (m.type === 'capture' && low(self.find(p, m.cardId).r) === bid) || ((m.type === 'build' || m.type === 'raise') && m.value === bid) || (m.type === 'throw' && low(self.find(p, m.cardId).r) === bid); });
-      if (!out.length) out = this.players[p].hand.filter(function (c) { return low(c.r) === bid; }).map(function (c) { return { type: 'throw', cardId: c.id, key: 't' + c.id, label: 'Throw ' + cname(c) }; });
-    }
-    return out;
+    return SeepRules.legal(this.ctx(p));
+  };
+  // tap-to-place moves arrive with an exact list of floor items: check them against the rules
+  SP.validate = function (p, a) {
+    if (this.phase === 'bid' || !a.items) return null;
+    if (a.key && this.legalFor(p).some(function (m) { return m.key === a.key; })) return null;
+    var c = this.find(p, a.cardId);
+    if (!c) return { ok: false, error: 'You don\'t hold that card' };
+    var ctx = this.ctx(p);
+    if (a.type === 'throw') return SeepRules.legal(ctx).filter(function (m) { return m.type === 'throw' && m.cardId === c.id; })[0] || { ok: false, error: 'You can\'t throw that card now' };
+    var opts = SeepRules.optionsAt(ctx, c, a.items);
+    return opts.filter(function (m) { return m.type === a.type && (a.value == null || m.value === a.value); })[0] || { ok: false, error: 'That doesn\'t work on those cards' };
   };
   SP.on_bid = function (p, a) {
-    var self = this;
     this.bid = a.value;
     this.emit({ t: 'bid', p: p, value: a.value });
     this.note(this.pname(p) + ' bids ' + a.value + '.');
-    for (var i = 0; i < 4; i++) this.floor.push({ kind: 'card', c: this.stock.pop() });
+    var self = this;
+    this.floorNext.forEach(function (c) { self.floor.push({ kind: 'card', c: c }); });
+    this.floorNext = [];
     this.emit({ t: 'floor' });
     this.phase = 'bidplay';
   };
@@ -1130,10 +1399,9 @@
     var self = this;
     var n = this.players.length;
     var order = [];
-    // first deal after the bid: the bidder (who already played one of their 4 cards) gets 8 more, everyone else 12
+    // first deal after the bid tops the bidder up to 11 (they've played one of 12), everyone else to 12
     var firstDeal = !this.firstDealDone;
     this.firstDealDone = true;
-    // first deal of a round tops the bidder up to 12; later deals give everyone 12
     var guard = 0;
     while (this.stock.length && guard++ < 200) {
       var dealt = false;
@@ -1159,25 +1427,49 @@
     items.forEach(function (it) { if (it.kind === 'card') out.push(it.c); else it.cards.forEach(function (c) { out.push(c); }); });
     return out;
   };
+  SP.isLastMove = function () { return !this.stock.length && this.players.every(function (pl) { return !pl.hand.length; }); };
   SP.on_capture = function (p, a) {
+    var first = this.phase === 'bidplay';
     var c = this.take(p, a.cardId);
     var got = this.cardsOf(this.removeItems(a.items)).concat([c]);
     var s = this.side(p);
     var self = this;
     got.forEach(function (x) { self.captured[s].push(x); });
     this.lastCapture = p;
-    var sweep = !this.floor.length && !this.isLastMove();
-    if (sweep) { this.sweeps[s]++; this.emit({ t: 'seep', p: p }); }
+    var bonus = 0;
+    if (!this.floor.length) {
+      // 100-point: 50, or 25 on the bidder's first play, nothing on the very last turn;
+      // 30-point: the capture value of the card played
+      bonus = this.thirty() ? low(c.r) : (this.isLastMove() ? 0 : first ? 25 : 50);
+      this.sweeps[s]++;
+      this.sweepPts[s] += bonus;
+      this.emit({ t: 'seep', p: p, bonus: bonus });
+    }
     this.emit({ t: 'capture', p: p, ids: got.map(function (x) { return x.id; }) });
-    this.note(this.pname(p) + ' captures ' + got.length + ' cards with ' + cname(c) + (sweep ? ' - SEEP! +50' : '') + '.');
+    this.note(this.pname(p) + ' captures ' + got.length + ' cards with ' + cname(c) + (bonus ? ' - SEEP! +' + bonus : !this.floor.length ? ' - a sweep on the last turn (no bonus)' : '') + '.');
     this.afterMove(p);
+  };
+  // put a new house on the floor, merging into an existing house of the same value (then it's pakka)
+  SP.placeHouse = function (house) {
+    for (var i = 0; i < this.floor.length; i++) {
+      var h = this.floor[i];
+      if (h !== house && h.kind === 'house' && h.value === house.value) {
+        h.cards = h.cards.concat(house.cards);
+        h.pakka = true;
+        house.owners.forEach(function (o) { if (h.owners.indexOf(o) < 0) h.owners.push(o); });
+        if (this.floor.indexOf(house) >= 0) this.floor.splice(this.floor.indexOf(house), 1);
+        return h;
+      }
+    }
+    if (this.floor.indexOf(house) < 0) this.floor.push(house);
+    return house;
   };
   SP.on_build = function (p, a) {
     var c = this.take(p, a.cardId);
     var parts = this.cardsOf(this.removeItems(a.items));
-    this.floor.push({ kind: 'house', value: a.value, pakka: false, owner: p, cards: parts.concat([c]) });
+    var h = this.placeHouse({ kind: 'house', value: a.value, pakka: !!a.pakka, owners: [p], cards: parts.concat([c]) });
     this.emit({ t: 'build', p: p, value: a.value });
-    this.note(this.pname(p) + ' builds a house of ' + a.value + '.');
+    this.note(this.pname(p) + ' builds a ' + (h.pakka ? 'pakka ' : '') + 'house of ' + a.value + '.');
     this.afterMove(p);
   };
   SP.on_raise = function (p, a) {
@@ -1185,17 +1477,21 @@
     var h = this.floor[a.house];
     h.cards.push(c);
     h.value = a.value;
-    h.owner = p;
+    h.owners = [p];
+    h = this.placeHouse(h);
     this.emit({ t: 'build', p: p, value: a.value });
-    this.note(this.pname(p) + ' raises the house to ' + a.value + '.');
+    this.note(this.pname(p) + ' breaks the house and raises it to ' + a.value + (h.pakka ? ' - it joins the other ' + a.value + ', pakka' : '') + '.');
     this.afterMove(p);
   };
   SP.on_cement = function (p, a) {
     var c = this.take(p, a.cardId);
     var h = this.floor[a.house];
-    h.cards.push(c);
+    var extra = a.items.filter(function (i) { return i !== a.house; });
+    var parts = this.cardsOf(extra.map(function (i) { return this.floor[i]; }, this));
+    this.removeItems(extra);
+    h.cards = h.cards.concat(parts, [c]);
     h.pakka = true;
-    h.owner = p;
+    if (a.joinOwner && h.owners.indexOf(p) < 0) h.owners.push(p);
     this.emit({ t: 'cement', p: p, value: h.value });
     this.note(this.pname(p) + ' makes the house of ' + h.value + ' pakka.');
     this.afterMove(p);
@@ -1207,9 +1503,7 @@
     this.note(this.pname(p) + ' throws ' + cname(c) + '.');
     this.afterMove(p);
   };
-  SP.isLastMove = function () { return !this.stock.length && this.players.every(function (pl) { return !pl.hand.length; }); };
   SP.afterMove = function (p) {
-    var self = this;
     if (this.phase === 'bidplay') { this.phase = 'play'; this.dealRest(); }
     if (this.players.every(function (pl) { return !pl.hand.length; })) {
       if (this.stock.length) this.dealRest();
@@ -1219,42 +1513,87 @@
     var guard = 0;
     while (!this.players[this.current].hand.length && guard++ < 4) this.current = this.next(this.current);
   };
+  // card points + sweep points for each side, as things stand
+  SP.livePoints = function () {
+    var self = this;
+    var pts = [0, 1].map(function (t) { return self.captured[t].reduce(function (sum, c) { return sum + self.pts(c); }, 0); });
+    if (this.thirty()) {
+      var n0 = this.captured[0].length, n1 = this.captured[1].length;
+      if (this.phase === 'roundOver' || this.endTally) { if (n0 > n1) pts[0] += 4; else if (n1 > n0) pts[1] += 4; }
+    }
+    return { cards: pts, total: [pts[0] + this.sweepPts[0], pts[1] + this.sweepPts[1]] };
+  };
   SP.endSeep = function () {
     var self = this;
     if (this.floor.length && this.lastCapture != null) {
       var s = this.side(this.lastCapture);
-      this.cardsOf(this.floor).forEach(function (c) { self.captured[s].push(c); });
-      this.emit({ t: 'capture', p: this.lastCapture, ids: this.cardsOf(this.floor).map(function (c) { return c.id; }) });
+      var left = this.cardsOf(this.floor);
+      left.forEach(function (c) { self.captured[s].push(c); });
+      this.emit({ t: 'capture', p: this.lastCapture, ids: left.map(function (c) { return c.id; }) });
       this.note(this.pname(this.lastCapture) + ' made the last capture and takes the floor.');
       this.floor = [];
     }
-    var pts = [0, 1].map(function (t) { return self.captured[t].reduce(function (sum, c) { return sum + seepPts(c); }, 0) + self.sweeps[t] * 50; });
+    this.endTally = true;
+    var live = this.livePoints();
+    this.endTally = false;
+    var pts = live.total.slice();
+    // 30-point "satthi": one side takes all 30 card points - scores 60
+    var satthi = null;
+    if (this.thirty()) [0, 1].forEach(function (t) { if (live.cards[t] >= 30) { satthi = t; pts[t] = 60 + self.sweepPts[t]; } });
     this.totals[0] += pts[0]; this.totals[1] += pts[1];
-    this.players.forEach(function (pl) { pl.score = self.totals[self.side(pl.id)]; });
-    var win = pts[0] === pts[1] ? null : (pts[0] > pts[1] ? 0 : 1);
     var who = function (t) { return self.teams ? self.pname(t) + ' & ' + self.pname(t + 2) : self.pname(t); };
+    var win = pts[0] === pts[1] ? null : (pts[0] > pts[1] ? 0 : 1);
+    var title = (satthi != null ? 'SATTHI! ' : '') + (win == null ? 'A tie - ' + pts[0] + ' points each!' : who(win) + ' score ' + pts[win] + ' to ' + pts[1 - win] + '!');
+    var baaziWon = null;
+    if (this.o.match === 'baazi') {
+      var target = this.thirty() ? 30 : 100;
+      // 100-point profile: a side with fewer than 9 points loses the baazi at once
+      if (!this.thirty() && (pts[0] < 9 || pts[1] < 9) && pts[0] !== pts[1]) baaziWon = pts[0] < 9 ? 1 : 0;
+      else {
+        this.diff += pts[0] - pts[1];
+        if (Math.abs(this.diff) >= target) baaziWon = this.diff > 0 ? 0 : 1;
+      }
+      title += baaziWon != null ? ' ' + who(baaziWon) + ' win the BAAZI!' : ' Lead: ' + (this.diff === 0 ? 'level' : who(this.diff > 0 ? 0 : 1) + ' by ' + Math.abs(this.diff)) + ' (first to ' + target + ').';
+      if (baaziWon != null) { this.baazi[baaziWon]++; this.o.rounds = this.round; }
+    }
+    this.players.forEach(function (pl) { pl.score = self.o.match === 'baazi' ? self.baazi[self.side(pl.id)] : self.totals[self.side(pl.id)]; });
     var winners = win == null ? [] : (this.teams ? [win, win + 2] : [win]);
-    this.finishRound(win == null ? 'A tie - ' + pts[0] + ' points each!' : who(win) + ' score ' + pts[win] + ' to ' + pts[1 - win] + '!', winners.length ? winners : [0], null, { points: pts, sweeps: this.sweeps.slice() });
+    this.finishRound(title, winners.length ? winners : [0], null, { points: pts, sweeps: this.sweeps.slice() });
+  };
+  SP.scoreboard = function () {
+    var self = this;
+    var live = this.livePoints();
+    var nSides = this.teams ? 2 : this.players.length;
+    var rows = [];
+    for (var t = 0; t < Math.min(2, nSides); t++) {
+      rows.push({ label: this.teams ? this.pname(t) + ' & ' + this.pname(t + 2) : this.pname(t), side: t,
+        value: live.total[t] + ' pts', sub: live.cards[t] + ' card pts · ' + this.sweeps[t] + ' seep' + (this.sweeps[t] === 1 ? '' : 's') + ' · ' + this.captured[t].length + ' cards',
+        total: this.o.match === 'baazi' ? 'Baazis ' + this.baazi[t] : 'Total ' + (this.totals[t] + (this.phase === 'roundOver' ? 0 : 0)) });
+    }
+    var foot = this.o.match === 'baazi' ? 'Baazi lead: ' + (this.diff === 0 ? 'level' : (this.diff > 0 ? rows[0].label : rows[1].label) + ' +' + Math.abs(this.diff)) + ' (to ' + (this.thirty() ? 30 : 100) + ')'
+      : (this.thirty() ? '30-point Punjabi scoring' : '100-point scoring');
+    return { title: 'Seep score', rows: rows, foot: foot + ' · ' + this.stock.length + ' cards to deal' };
   };
   SP.view = function (viewer) {
     var self = this;
     var items = this.floor.map(function (it, i) {
       if (it.kind === 'card') return { kind: 'card', idx: i, cv: self.cv(it.c, true) };
-      return { kind: 'house', idx: i, value: it.value, pakka: it.pakka, owner: it.owner, cards: it.cards.map(function (c) { return self.cv(c, true); }) };
+      return { kind: 'house', idx: i, value: it.value, pakka: it.pakka, owners: it.owners.slice(), owner: it.owners[0], cards: it.cards.map(function (c) { return self.cv(c, true); }) };
     });
     var zones = [{ id: 'floor', type: 'floor', items: items, label: this.phase === 'bid' ? 'Waiting for the bid' : (this.bid && this.phase === 'bidplay' ? 'Bid: ' + this.bid : '') }];
     var nSides = this.teams ? 2 : this.players.length;
+    var live = this.livePoints();
     for (var t = 0; t < Math.min(2, nSides); t++) {
-      zones.push({ id: 'won' + t, type: 'won', p: t, label: this.captured[t].length + ' cards' + (this.sweeps[t] ? ' · ' + this.sweeps[t] + ' seep' : ''), cards: this.captured[t].slice(-4).map(function (c) { return { id: c.id, a: null, b: 'back' }; }) });
+      zones.push({ id: 'won' + t, type: 'won', p: t, label: live.total[t] + ' pts' + (this.sweeps[t] ? ' · ' + this.sweeps[t] + ' seep' : ''), cards: this.captured[t].slice(-4).map(function (c) { return { id: c.id, a: null, b: 'back' }; }) });
     }
     var mine = viewer === this.actor();
     return this.baseView(viewer, {
-      zones: zones, deckCount: this.stock.length, teams: this.teams,
+      zones: zones, deckCount: this.stock.length, teams: this.teams, bid: this.bid,
       status: this.phase === 'bid' ? this.statusFor(viewer, 'Bid a house value (9-13) from your 4 cards', 'is bidding…')
         : this.phase === 'bidplay' ? this.statusFor(viewer, 'Play for your bid of ' + this.bid + ': build it, capture it, or throw that card', 'is playing the bid…')
-          : this.statusFor(viewer, 'Your turn - tap a card to capture, build or throw', 'is thinking…'),
+          : this.statusFor(viewer, 'Your turn - pick a card, then tap where it goes (or choose from the list)', 'is thinking…'),
       prompt: this.phase === 'bid' && mine ? { title: 'Bid a house value', text: 'You must hold a card of the value you bid.', options: this.legalFor(viewer).map(function (a) { return { label: a.label, action: a }; }) } : null,
-      perCard: true
+      perCard: true, placeable: true
     });
   };
 
@@ -1283,6 +1622,15 @@
     list.forEach(function (x) { var s = score(x); if (s > bs) { bs = s; best = x; } });
     return best;
   }
+  // CPU players added by other game packs (pro.js)
+  var DECIDERS = {};
+  // let another file add games built on the same base (the Pro hall)
+  function addGames(games, ctors, deciders, opts) {
+    Object.keys(games).forEach(function (id) { games[id].fixed = games[id].fixed || {}; GAMES[id] = games[id]; CTORS[id] = ctors[id]; });
+    Object.keys(deciders || {}).forEach(function (id) { DECIDERS[id] = deciders[id]; });
+    Object.keys(opts || {}).forEach(function (k) { OPTS[k] = opts[k]; });
+    if (E && E.register) E.register({ variants: games, options: opts || {}, create: create });
+  }
   function decide(v, mem, rnd) {
     rnd = rndFn(rnd);
     var legal = v.legal || [];
@@ -1293,6 +1641,7 @@
     var noise = lvl === 'easy' ? 6 : lvl === 'hard' ? 0.5 : 2;
     var byType = {};
     legal.forEach(function (a) { (byType[a.type] = byType[a.type] || []).push(a); });
+    if (DECIDERS[v.variant]) return DECIDERS[v.variant](v, mem, rnd, noise);
     if (byType.collect) return byType.collect[0];
     var trick = (v.zones || []).filter(function (z) { return z.type === 'trick'; })[0];
     switch (v.variant) {
@@ -1399,6 +1748,7 @@
         if (known) {
           var hr = handRank(cardsF.map(function (f) { return { s: f.s, r: f.r }; }));
           strength = (hr.cat - 1) / 5 + (hr.key[0] || 0) / 60;
+          if (v.options && v.options.tpVariant === 'muflis') strength = 1.25 - strength;   // low hands are strong in Muflis
         }
         var bluffy = rnd() < (lvl === 'easy' ? 0.05 : 0.12);
         if (byType.show && strength > 0.45) return byType.show[0];
@@ -1412,13 +1762,23 @@
       }
       case 'seep': {
         if (byType.bid) return pickBy(byType.bid, function (a) { return a.value + rnd(); });
+        var fz = (v.zones || []).filter(function (z) { return z.type === 'floor'; })[0];
+        var fitems = fz ? fz.items : [];
+        var ptsOf = v.options && v.options.scoring === '30' ? function (c) { return c ? ((c.s === 'D' && c.r === '10') ? 12 : (c.s === 'S' && c.r === '9') ? 9 : (c.s === 'S' && c.r === '2') ? 1 : c.r === 'A' ? 1 : 0) : 0; } : function (c) { return c ? seepPts(c) : 0; };
+        var itemPts = function (i) { var it = fitems[i]; if (!it) return 0; return it.kind === 'card' ? ptsOf(it.cv.a) : it.cards.reduce(function (t, x) { return t + ptsOf(x.a); }, 0); };
+        var itemCount = function (i) { var it = fitems[i]; return !it ? 0 : it.kind === 'card' ? 1 : it.cards.length; };
         return pickBy(legal, function (a) {
           var f = face(v, a.cardId) || { r: '2', s: 'H' };
-          var cardPts = seepPts(f);
-          if (a.type === 'capture') return 40 + (a.gain || 0) * 2 + (a.sweep ? 120 : 0) + a.items.length * 3 + rnd() * noise;
-          if (a.type === 'build' || a.type === 'raise') return 30 + a.value + rnd() * noise;
+          var cardPts = ptsOf(f);
+          if (a.type === 'capture') {
+            var gain = cardPts, cnt = 1;
+            a.items.forEach(function (i) { gain += itemPts(i); cnt += itemCount(i); });
+            return 40 + gain * 2 + (a.sweep ? 120 : 0) + cnt * 3 + rnd() * noise;
+          }
+          if (a.type === 'build') return 30 + a.value + (a.pakka ? 8 : 0) + rnd() * noise;
+          if (a.type === 'raise') return 34 + a.value + rnd() * noise;           // breaking someone else's house
           if (a.type === 'cement') return 28 + rnd() * noise;
-          return 10 - cardPts * 2 - low(f.r) * 0.3 + rnd() * noise;   // throw something harmless
+          return 10 - cardPts * 2 - low(f.r) * 0.3 + rnd() * noise;            // throw something harmless
         });
       }
     }
@@ -1427,6 +1787,8 @@
 
   return {
     GAMES: GAMES, OPTS: OPTS, SUITS: SUITS, RANKS: RANKS, SYM: SYM, SUIT_NAME: SUIT_NAME, RANK_WORD: RANK_WORD,
-    create: create, decide: decide, handRank: handRank, cmpHands: cmpHands, seepPoints: seepPts
+    create: create, decide: decide, handRank: handRank, cmpHands: cmpHands, seepPoints: seepPts, SeepRules: SeepRules,
+    // building blocks for other game packs
+    Base: Base, proto: B, addGames: addGames, assign: assign, rndFn: rndFn, low: low, hi: hi, cname: cname, trickZone: trickZone, shuffle: shuffle
   };
 });

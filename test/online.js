@@ -28,6 +28,8 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   await wait(200);
   a.send({ t: 'addBot', level: 'hard' });
   await wait(200);
+  // four-player games (partners, or Seep's 2-or-4) get another CPU
+  if (['twentynine', 'courtpiece', 'seep'].indexOf(variant) >= 0) { a.send({ t: 'addBot', level: 'normal' }); await wait(200); }
   console.log('room', code, 'seats', a.room.seats.map(s => s.name + ':' + s.kind).join(', '));
   a.send({ t: 'start' });
   await wait(500);
@@ -40,8 +42,8 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
       const v = c.view;
       if (!v) continue;
       if (v.gameOver) continue;
-      // hidden information check: never see other players' faces mid-round (a Teen Patti show reveals on purpose)
-      if (v.phase !== 'roundOver' && v.phase !== 'showdown') for (const p of v.players) if (p.id !== v.me) for (const card of p.hand) if (card.a && v.variant !== 'flip') throw new Error('LEAK: saw opponent card');
+      // hidden information check: never see other players' faces mid-round (a show reveals on purpose; blackjack hands are always face up)
+      if (v.phase !== 'roundOver' && v.phase !== 'showdown' && v.variant !== 'blackjack') for (const p of v.players) if (p.id !== v.me) for (const card of p.hand) if (card.a && v.variant !== 'flip') throw new Error('LEAK: saw opponent card');
       const act = B.decide(v, mem[k]);
       if (act && (v.actor === v.me || act.type === 'nextRound' || act.type === 'uno')) { c.send({ t: 'act', action: act }); steps++; c.view = null; }
     }

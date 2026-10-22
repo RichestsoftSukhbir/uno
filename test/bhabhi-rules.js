@@ -135,6 +135,22 @@ function settle(g) { let a; while ((a = g.autoNext())) g.act(g.actor(), a); }
   check('9 A holds only a lower spade: takes the led card and leads', g2.players[0].hand.length === 3 && g2.actor() === 0 && g2.players[3].out, counts(g2));
 }
 
+/* 11. opening-trick immunity (the default): a void player on the first trick doesn't cause a pickup */
+{
+  const g = setup('trick', [['AS', '9H'], ['3S', 'QH'], ['7D', '2C'], ['4S', '7H']]);
+  g.firstTrick = true;
+  play(g, 0, 'AS'); play(g, 1, '3S'); play(g, 2, '7D');
+  check('11 the trick carries on after an off-suit card', g.phase === 'play' && g.actor() === 3, { phase: g.phase });
+  play(g, 3, '4S'); settle(g);
+  check('11 whole first trick discarded, nobody picks up', g.outPile.length === 4 && JSON.stringify(counts(g)) === '[1,1,1,1]', counts(g));
+  check('11 A of spades holder leads next', g.actor() === 0);
+  check('11 second trick: thullas count again', !g.firstTrick);
+  const h = setup('trick', [['AS', '9H'], ['3S', 'QH'], ['7D', '2C'], ['4S', '7H']]);
+  h.o.openingTrick = 'thulla'; h.firstTrick = true;
+  play(h, 0, 'AS'); play(h, 1, '3S'); play(h, 2, '7D'); settle(h);
+  check('11 with immunity off, the first-trick thulla stops it: A of spades picks up', h.players[0].hand.length === 4, counts(h));
+}
+
 /* 10. a whole game with the rule on, CPUs only, many seeds: always finishes, cards conserved */
 {
   let games = 0, fired = 0;

@@ -18,7 +18,14 @@
   function sig(id) { var V = E.VARIANTS[id]; return V && V.sig ? V.sig : SIGNATURE[id]; }
   function backOf(id) { var V = E.VARIANTS[id] || {}; return V.universe === 'desi' ? 'patti' : (id === 'dos' ? 'dos' : 'uno'); }
   function universeOf(id) { return (E.VARIANTS[id] || {}).universe || 'uno'; }
-  function gamesOf(u) { return Object.keys(E.VARIANTS).filter(function (id) { return universeOf(id) === u; }); }
+  // the Desi universe has two halls: desi games (Indian look) and the Pro card room
+  function hallOf(id) { var V = E.VARIANTS[id] || {}; return V.universe === 'desi' ? (V.hall || 'indian') : 'uno'; }
+  function currentHall() { return settings.universe !== 'desi' ? 'uno' : (settings.desiTheme === 'pro' ? 'pro' : 'indian'); }
+  function gamesOf(u) {
+    // 'uno', 'indian', 'pro' - or 'desi' for whichever hall is showing
+    var hall = u === 'desi' ? currentHall() : u;
+    return Object.keys(E.VARIANTS).filter(function (id) { return hallOf(id) === hall; });
+  }
 
   /* the whole site switches between the UNO hall and the Desi Patti hall */
   function applyUniverse() {
@@ -35,7 +42,7 @@
     }
     var playingDesi = app.view && app.view.engine === 'patti';
     S.setPack(u === 'desi' || playingDesi ? th : null);
-    document.title = u === 'desi' ? 'Desi Patti - UNO Arena' : 'UNO Arena';
+    document.title = u === 'desi' ? (th === 'pro' ? 'Card Room' : 'Desi Patti') + ' - UNO Arena' : 'UNO Arena';
     $$('.uni-switch button').forEach(function (b) { b.classList.toggle('active', b.dataset.u === u); });
     $$('.theme-switch button').forEach(function (b) { b.classList.toggle('active', b.dataset.t === th); });
   }
@@ -61,7 +68,7 @@
         backImg.style.visibility = 'visible';
       }
     }
-    title.textContent = desi ? (settings.desiTheme === 'pro' || kind === 'pro' ? 'DESI PATTI' : 'देसी पत्ती') : 'UNO ARENA';
+    title.textContent = desi ? (kind === 'pro' ? 'CARD ROOM' : 'देसी पत्ती') : 'UNO ARENA';
     S.play('shuffle');
     var tl = gsap.timeline({ onComplete: function () { ov.remove(); app.transitioning = false; } });
     tl.fromTo(ov, { clipPath: 'circle(0% at 50% 50%)' }, { clipPath: 'circle(150% at 50% 50%)', duration: 0.55, ease: 'power2.in' })
@@ -120,6 +127,7 @@
   function showScreen(id) {
     $$('.screen').forEach(function (s) { s.classList.toggle('active', s.id === 'screen-' + id); });
     app.screen = id;
+    if (id === 'home') applyUniverse();          // back to the hall the home page shows
   }
   function toast(text, cls) {
     var t = document.createElement('div');
@@ -332,7 +340,7 @@
     $$('[data-scroll]').forEach(function (a) { a.onclick = function (e) { e.preventDefault(); scrollTo(a.dataset.scroll); }; });
     home.addEventListener('scroll', function () { $('#lpNav').classList.toggle('solid', home.scrollTop > 40); });
     var quick = function () {
-      var qv = settings.universe === 'desi' ? 'bhabhi' : 'classic';
+      var qv = { uno: 'classic', indian: 'bhabhi', pro: 'holdem' }[currentHall()];
       setup.variant = qv; setup.mode = 'cpu';
       startLocal(qv, E.VARIANTS[qv].defaults, cpuSeats(3, 'normal'));
     };
@@ -578,7 +586,11 @@
     if (app.table) return app.table;
     app.table = new window.UNOTable($('#tableRoot'), {
       onCardClick: onCardClick,
-      onCardThrow: function (id) { onCardClick(id, true); },
+      onCardThrow: function (id, dropOn) {
+        if (dropOn && app.view && app.view.placeable) return placeOnto(id, [dropOn], true);
+        onCardClick(id, true);
+      },
+      onZoneCardClick: function (id) { onFloorCardClick(id); },
       onDeckClick: onDeckClick,
       onSlotClick: onSlotClick,
       onSeatClick: onSeatClick,
@@ -595,6 +607,7 @@
   function endSession() {
     if (app.session && app.session.controller) app.session.controller.destroy();
     clearInterval(app.timerInt); app.timerInt = null;
+    app.recentLog = [];
     if (app.clockEl) app.clockEl.remove();
     app.session = null;
     app.queue = [];
@@ -731,7 +744,8 @@
   function onDeckClick() {
     var v = app.view;
     if (!v) return;
-    if (legal('hit').length) return act({ type: 'hit' });
+    if (legal('hit').length) return act(legal('hit')[0]);
+    if (legal('drawDeck').length) return act(legal('drawDeck')[0]);     // Rummy: draw from the closed deck
     if (legal('draw').length) { act({ type: 'draw' }); return; }
     if (v.actor === v.me) { S.play('error'); toast(v.phase === 'drawn' ? 'Play the drawn card or keep it' : 'You can\'t draw now', 'info'); }
   }
@@ -758,10 +772,72 @@
     }
     var moves = (v.legal || []).filter(function (a) { return a.cardId === id && a.type !== 'pick'; });
     if (!moves.length) { S.play('error'); shakeCard(id); toast(v.status || 'That card can\'t be played now', 'info'); return; }
-    if (moves.length === 1) { S.play('flick'); app.pattiChoice = null; act(moves[0]); return; }
-    // Seep: several things this card can do
-    app.pattiChoice = { cardId: id, moves: moves };
+    if (moves.length === 1 && !v.placeable) { S.play('flick'); app.pattiChoice = null; act(moves[0]); return; }
+    if (app.pattiChoice && app.pattiChoice.cardId === id) { app.pattiChoice = null; renderHud(v); return; }   // tap again to put it back
+    // Seep: several things this card can do - pick from the list, or tap the floor cards it should go on
+    S.play('flick');
+    app.pattiChoice = { cardId: id, moves: moves, items: [] };
     renderHud(v);
+  }
+  /* ---- Seep: place the selected card onto chosen floor cards / houses ---- */
+  function floorItems(v) {
+    var z = (v.zones || []).filter(function (z) { return z.type === 'floor'; })[0];
+    return z ? z.items : [];
+  }
+  function floorIndexOf(v, cardId) {
+    var items = floorItems(v);
+    for (var i = 0; i < items.length; i++) {
+      var it = items[i];
+      if (it.kind === 'card' ? it.cv.id === cardId : it.cards.some(function (c) { return c.id === cardId; })) return i;
+    }
+    return -1;
+  }
+  function floorCardIds(v, idxs) {
+    var items = floorItems(v), out = [];
+    idxs.forEach(function (i) { var it = items[i]; if (!it) return; if (it.kind === 'card') out.push(it.cv.id); else it.cards.forEach(function (c) { out.push(c.id); }); });
+    return out;
+  }
+  function seepOptions(v, cardId, idxs) {
+    var R = window.UNOPatti && window.UNOPatti.SeepRules;
+    if (!R) return [];
+    var ctx = R.fromView(v);
+    var c = ctx.hand.filter(function (x) { return x.id === cardId; })[0];
+    if (!c) return [];
+    // only offer what the server will accept: everything optionsAt finds is checked by the same rules there
+    return R.optionsAt(ctx, c, idxs);
+  }
+  function placeOnto(cardId, floorCardIdsChosen, dropped) {
+    var v = app.view;
+    if (!v || v.actor !== v.me) { toast('Wait for your turn', 'info'); return; }
+    var idxs = [];
+    floorCardIdsChosen.forEach(function (fid) { var i = floorIndexOf(v, fid); if (i >= 0 && idxs.indexOf(i) < 0) idxs.push(i); });
+    var opts = seepOptions(v, cardId, idxs);
+    if (dropped && opts.length === 1) { S.play('flick'); app.pattiChoice = null; act(opts[0]); return; }
+    if (!opts.length) {
+      S.play('error');
+      toast(dropped ? 'That card can\'t go there' : 'Nothing works with exactly those cards - tap another or untap one', 'info');
+      if (dropped) return;
+    } else S.play('flick');
+    var all = (v.legal || []).filter(function (a) { return a.cardId === cardId; });
+    app.pattiChoice = { cardId: cardId, moves: opts.length ? opts : all, items: idxs, targeted: !!opts.length };
+    renderHud(v);
+  }
+  function onFloorCardClick(fid) {
+    var v = app.view;
+    // Rummy: tap the open pile to take its top card
+    var take = v && v.actor === v.me && (v.legal || []).filter(function (a) { return a.type === 'drawOpen'; })[0];
+    if (take) { var oz = (v.zones || []).filter(function (z) { return z.id === 'open'; })[0]; if (oz && oz.cards.some(function (c) { return c.id === fid; })) { S.play('flick'); act(take); return; } }
+    if (!v || !v.placeable || v.phase === 'bid') return;
+    if (v.actor !== v.me) { toast('Wait for your turn', 'info'); return; }
+    var pc = app.pattiChoice;
+    if (!pc) { S.play('error'); toast('First pick a card from your hand, then tap where it goes', 'info'); return; }
+    var i = floorIndexOf(v, fid);
+    if (i < 0) return;
+    var chosen = (pc.items || []).slice();
+    var at = chosen.indexOf(i);
+    if (at >= 0) chosen.splice(at, 1); else chosen.push(i);
+    if (!chosen.length) { app.pattiChoice = { cardId: pc.cardId, moves: (v.legal || []).filter(function (a) { return a.cardId === pc.cardId; }), items: [] }; renderHud(v); return; }
+    placeOnto(pc.cardId, floorCardIds(v, chosen), false);
   }
   function onOppCardClick(id) {
     var v = app.view;
@@ -830,6 +906,14 @@
       else (v.legal || []).forEach(function (a) { if (a.cardId && a.type !== 'pick' && playable.indexOf(a.cardId) < 0) playable.push(a.cardId); });
     }
     app.table.markCards(settings.hints ? playable : [], myTurn && settings.hints && !v.select, app.selected, myTurn ? v.pickFrom : null);
+    // Seep: show where the chosen card can go
+    if (v.placeable && myTurn && app.pattiChoice) {
+      var pcs = app.pattiChoice, tIdx = [];
+      (v.legal || []).forEach(function (a) { if (a.cardId === pcs.cardId && a.items) a.items.forEach(function (i) { if (tIdx.indexOf(i) < 0) tIdx.push(i); }); });
+      floorItems(v).forEach(function (it, i) { if (tIdx.indexOf(i) < 0 && seepOptions(v, pcs.cardId, (pcs.items || []).concat([i])).length) tIdx.push(i); });
+      app.table.markTargets(floorCardIds(v, tIdx), floorCardIds(v, pcs.items || []));
+      app.table.markCards(settings.hints ? playable : [], myTurn && settings.hints && !v.select, [pcs.cardId], null);
+    } else app.table.markTargets(null, null);
     // status
     var st = $('#hudStatus');
     var txt = v.status || '';
@@ -843,16 +927,20 @@
     if (myTurn && v.prompt) { html = '<h4>' + esc(v.prompt.title) + '</h4>' + (v.prompt.text ? '<p>' + esc(v.prompt.text) + '</p>' : ''); opts = v.prompt.options; }
     else if (myTurn && app.pattiChoice) {
       var cv = (m ? m.hand : []).filter(function (c) { return c.id === app.pattiChoice.cardId; })[0];
-      html = '<h4>What should ' + (cv && cv.a ? esc(window.UNOPattiArt.short(cv.a)) : 'this card') + ' do?</h4>';
+      var nm = cv && cv.a ? esc(window.UNOPattiArt.short(cv.a)) : 'this card';
+      html = '<h4>' + (app.pattiChoice.targeted ? 'Put ' + nm + ' here:' : 'What should ' + nm + ' do?') + '</h4>' +
+        (v.placeable ? '<p class="hint">' + (app.pattiChoice.items && app.pattiChoice.items.length ? 'Tap more floor cards to combine them, or tap one again to drop it.' : 'Or tap the floor cards / house it should go on (you can also drag it there).') + '</p>' : '');
       opts = app.pattiChoice.moves.map(function (a) { return { label: a.label, action: a }; });
     }
     if (opts.length) html += '<div class="choice-list">' + opts.map(function (o, i) { return '<button class="btn big' + (o.suit ? ' suit-' + o.suit : '') + '" data-o="' + i + '">' + esc(o.label) + '</button>'; }).join('') + '</div>' + (app.pattiChoice ? '<div class="pr-btns"><button class="btn ghost" data-cancel>Cancel</button></div>' : '');
     if (early) return;
+    // Seep: keep the floor uncovered while you pick where the card goes
+    p.classList.toggle('dock', !!(v.placeable && myTurn && app.pattiChoice));
     if (p.dataset.html !== html) {
       p.dataset.html = html;
       p.innerHTML = html;
       p.classList.toggle('show', !!html);
-      if (html) gsap.fromTo(p, { y: 30, opacity: 0, scale: 0.95 }, { y: 0, opacity: 1, scale: 1, duration: 0.3, ease: 'back.out(1.7)' });
+      if (html) gsap.fromTo(p, { y: 30, opacity: 0, scale: 0.95 }, { y: 0, opacity: 1, scale: 1, duration: 0.3, ease: 'back.out(1.7)', clearProps: p.classList.contains('dock') ? 'transform' : '' });
       $$('[data-o]', p).forEach(function (b) { b.onclick = function () { var o = opts[+b.dataset.o]; app.pattiChoice = null; act(o.action); }; });
       var cb = $('[data-cancel]', p);
       if (cb) cb.onclick = function () { app.pattiChoice = null; renderHud(app.view); };
@@ -909,8 +997,51 @@
     app.selected = app.selected.filter(function (id) { return mine.indexOf(id) >= 0; });
   }
 
+  // live score + what just happened, for the games that publish a scoreboard
+  function renderBoard(v) {
+    var el = $('#liveBoard');
+    var sb = v && v.scoreboard;
+    if (!sb) { el.classList.add('hidden'); return; }
+    el.classList.remove('hidden');
+    var me = v.me, mySide = v.teams && me != null ? me % 2 : null;
+    var rows = sb.rows.map(function (r) {
+      var mine = r.p != null ? r.p === me : (r.side != null && r.side === mySide);
+      var turn = r.p != null && r.p === v.actor;
+      return '<li class="' + (mine ? 'mine ' : '') + (turn ? 'turn ' : '') + (r.good ? 'good ' : '') + (r.bad ? 'bad' : '') + '"><span class="lb-name">' + esc(r.label) + '</span><b>' + esc(r.value) + '</b>' +
+        (r.sub || r.total ? '<small>' + esc([r.sub, r.total].filter(Boolean).join(' · ')) + '</small>' : '') + '</li>';
+    }).join('');
+    var feed = (app.recentLog || []).slice(-3).map(function (t, i, a) { return '<div' + (i === a.length - 1 ? ' class="new"' : '') + '>' + esc(t) + '</div>'; }).join('');
+    var html = '<button class="lb-head" type="button">' + I.svg('champion') + '<span>' + esc(sb.title) + '</span><i class="lb-caret"></i></button>' +
+      '<div class="lb-body"><ul>' + rows + '</ul>' + (sb.foot ? '<p class="lb-foot">' + esc(sb.foot) + '</p>' : '') + (feed ? '<div class="lb-feed">' + feed + '</div>' : '') + '</div>';
+    if (el.dataset.html === html) return;
+    if (el.dataset.html == null) {
+      // open by default only where there's room for it beside the players
+      var pref = null;
+      try { pref = localStorage.getItem('uno.board'); } catch (e) { /* ignore */ }
+      el.classList.toggle('open', pref ? pref === 'open' : window.innerHeight >= 760 && window.innerWidth > 900);
+    }
+    el.dataset.html = html;
+    el.innerHTML = html;
+    $('.lb-head', el).onclick = function () {
+      el.classList.toggle('open');
+      try { localStorage.setItem('uno.board', el.classList.contains('open') ? 'open' : 'closed'); } catch (e) { /* ignore */ }
+    };
+  }
+
+  // the table takes the look of the game's own hall (a Pro game gets the card room even from the Desi page)
+  function matchHall(v) {
+    var h = hallOf(v.variant);
+    if (h === 'uno' || document.body.dataset.desiTheme === h) return;
+    document.body.dataset.desiTheme = h;
+    Cards.setDesiTheme(h);
+    S.setPack(h);
+    if (app.table) app.table.refreshFaces();
+  }
+
   function renderHud(v, early) {
     if (!v) return;
+    matchHall(v);
+    renderBoard(v);
     document.body.dataset.playing = v.engine;
     $('#pattiBtns').classList.toggle('hidden', v.engine !== 'patti');
     if (v.engine === 'patti') { renderPattiHud(v, early); updateTimer(); return; }
@@ -1120,8 +1251,11 @@
 
   function logEvents(events) {
     var list = $('#logList');
+    app.recentLog = app.recentLog || [];
     (events || []).forEach(function (e) {
       if (e.t !== 'log') return;
+      app.recentLog.push(e.text);
+      if (app.recentLog.length > 3) app.recentLog.shift();
       var d = document.createElement('div');
       d.textContent = e.text;
       list.appendChild(d);
@@ -1260,7 +1394,7 @@
   }
 
   function openRules(variant) {
-    var ids = gamesOf(variant ? universeOf(variant) : (settings.universe === 'desi' ? 'desi' : 'uno'));
+    var ids = gamesOf(variant ? hallOf(variant) : currentHall());
     if (!variant) variant = ids[0];
     var card = modal('<div class="rules"><div class="rules-tabs">' + ids.map(function (id) { return '<button data-v="' + id + '">' + esc(E.VARIANTS[id].short) + '</button>'; }).join('') + '<button data-v="controls">Controls</button></div><div class="rules-body"></div><div class="pr-btns"><button class="btn" data-close>Close</button></div></div>', { cls: 'wide rules-modal' });
     function show(id) {
@@ -1444,7 +1578,7 @@
     }).join('');
     $$('[data-rm]', seats).forEach(function (b) { b.onclick = function () { app.net.send({ t: 'removeSeat', index: +b.dataset.rm }); }; });
     var sel = $('#lobbyVariantSel');
-    if (!sel.options.length) sel.innerHTML = [['uno', 'UNO'], ['desi', 'Desi Patti']].map(function (g) {
+    if (!sel.options.length) sel.innerHTML = [['uno', 'UNO'], ['indian', 'Desi Patti'], ['pro', 'Card Room (Pro)']].map(function (g) {
       return '<optgroup label="' + g[1] + '">' + gamesOf(g[0]).map(function (id) { return '<option value="' + id + '">' + esc(E.VARIANTS[id].name) + '</option>'; }).join('') + '</optgroup>';
     }).join('');
     sel.value = room.variant;
@@ -1531,6 +1665,12 @@
     if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
       navigator.serviceWorker.register('sw.js').catch(function () { /* optional */ });
     }
+    // warm the cache with the table photos while people look at the home page
+    var warm = function () {
+      var small = window.innerWidth <= 900;
+      ['table-bg', 'desi-table', 'pro-table'].forEach(function (n) { var im = new Image(); im.decoding = 'async'; im.src = 'img/' + n + (small ? '-sm' : '') + '.webp'; });
+    };
+    if (window.requestIdleCallback) requestIdleCallback(warm, { timeout: 2500 }); else setTimeout(warm, 1200);
     // test hook
     window.UNOApp.startLocal = startLocal;
     window.UNOApp.openRules = openRules;

@@ -14,6 +14,7 @@ const WebSocket = require('ws');
 const E = require('./public/js/shared/engine.js');
 const { Controller } = require('./public/js/shared/controller.js');
 require('./public/js/shared/patti.js'); // registers the Desi games
+require('./public/js/shared/pro.js');   // and the Pro card-room games
 
 const PORT = +process.env.PORT || 3000;
 const PUBLIC = path.join(__dirname, 'public');

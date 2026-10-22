@@ -777,12 +777,12 @@ input:focus, select:focus { border-color: var(--accent); }
 /* ================================================================== */
 /* Game screen: lounge backdrop + neon table                           */
 /* ================================================================== */
-.table-root { background: #06080f url('../img/table-bg.jpg') center / cover no-repeat; }
+.table-root { background: #1e2135 url('../img/table-bg.webp') center / cover no-repeat; }
 .table-root::before { content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 0;
   background: radial-gradient(ellipse at 50% 55%, rgba(4,8,20,0) 35%, rgba(4,8,20,.55) 100%), linear-gradient(180deg, rgba(5,8,18,.35), rgba(5,8,18,0) 30%); }
-.table-root.dark-side { background: #0a0510 url('../img/table-bg.jpg') center / cover no-repeat; }
+.table-root.dark-side { background: #1a1028 url('../img/table-bg.webp') center / cover no-repeat; }
 .table-root.dark-side::before { background: radial-gradient(ellipse at 50% 55%, rgba(40,10,60,.25) 30%, rgba(20,4,30,.75) 100%); }
-@media (max-width: 900px) { .table-root, .table-root.dark-side { background-image: url('../img/table-bg-sm.jpg'); } }
+@media (max-width: 900px) { .table-root, .table-root.dark-side { background-image: url('../img/table-bg-sm.webp'); } }
 .table-root .stage { z-index: 1; }
 
 /* the table */
@@ -949,13 +949,13 @@ body[data-universe="desi"][data-desi-theme="pro"] .home-foot { background: #0308
 /* ================================================================== */
 /* your photographed tables: the baithak carpet (Indian) and the black stone lounge table (Pro).
    The surface is in the photo, so the drawn felt steps aside and cards lie straight on it. */
-body[data-playing="patti"] .table-root { background: #1a0806 url('../img/desi-table.jpg') center 62% / cover no-repeat; }
+body[data-playing="patti"] .table-root { background: #511c13 url('../img/desi-table.webp') center 62% / cover no-repeat; }
 body[data-playing="patti"] .table-root::before { background: radial-gradient(ellipse at 50% 58%, rgba(20,4,2,0) 42%, rgba(20,4,2,.5) 100%), linear-gradient(180deg, rgba(10,2,0,.35), rgba(10,2,0,0) 25%); }
-body[data-playing="patti"][data-desi-theme="pro"] .table-root { background: #05060a url('../img/pro-table.jpg') center 60% / cover no-repeat; }
+body[data-playing="patti"][data-desi-theme="pro"] .table-root { background: #281e22 url('../img/pro-table.webp') center 60% / cover no-repeat; }
 body[data-playing="patti"][data-desi-theme="pro"] .table-root::before { background: radial-gradient(ellipse at 50% 58%, rgba(0,0,0,0) 45%, rgba(0,0,0,.55) 100%), linear-gradient(180deg, rgba(0,0,0,.35), rgba(0,0,0,0) 25%); }
 @media (max-width: 900px) {
-  body[data-playing="patti"] .table-root { background-image: url('../img/desi-table-sm.jpg'); }
-  body[data-playing="patti"][data-desi-theme="pro"] .table-root { background-image: url('../img/pro-table-sm.jpg'); }
+  body[data-playing="patti"] .table-root { background-image: url('../img/desi-table-sm.webp'); }
+  body[data-playing="patti"][data-desi-theme="pro"] .table-root { background-image: url('../img/pro-table-sm.webp'); }
 }
 body[data-playing="patti"] .felt { background: none; box-shadow: none; }
 body[data-playing="patti"] .felt::before, body[data-playing="patti"] .felt::after { display: none; }
@@ -969,8 +969,7 @@ body[data-universe="desi"] .mini-card, .d-stage.patti .d-card .d-in i, .uni-tran
 body[data-playing="patti"] .hud-logo { display: none; }
 body[data-playing="patti"] .hud-desi { display: block; }
 body[data-playing="patti"][data-desi-theme="pro"] .hud-desi { font: 800 15px/1 var(--pro-font); letter-spacing: 2px; }
-body[data-playing="patti"][data-desi-theme="pro"] .hud-desi b { font-size: 0; }
-body[data-playing="patti"][data-desi-theme="pro"] .hud-desi b::before { content: 'DESI'; font-size: 15px; }
+body[data-playing="patti"][data-desi-theme="pro"] .hud-desi b { font-size: 15px; font-weight: 800; }
 body[data-playing="patti"] .hud-name b { font-family: var(--deva); font-weight: 400; color: #ffe08a; }
 body[data-playing="patti"][data-desi-theme="pro"] .hud-name b { font-family: var(--pro-font); font-weight: 800; color: #f5d27a; }
 body[data-playing="patti"] .hud-status.mine { background: linear-gradient(180deg, #ffcf5c, #ff8f00); }
@@ -1113,3 +1112,53 @@ body[data-playing="patti"] .card.playable .face { box-shadow: 0 0 0 3px rgba(255
 body[data-playing="patti"] .card.in-trick .face { box-shadow: 0 0 0 2px rgba(255,214,120,.95), 0 0 18px 4px rgba(255,180,50,.55), 0 4px 10px rgba(0,0,0,.5); }
 body[data-playing="patti"] .card.pickable .face { box-shadow: 0 0 0 3px #fff, 0 0 22px 8px rgba(255,170,40,.9); }
 body[data-playing="patti"] .card.selected .face { box-shadow: 0 0 0 4px #3df, 0 0 24px 6px rgba(60,220,255,.85); }
+/* Seep: floor cards the chosen card can go onto, and the ones picked */
+.card.target .face { box-shadow: 0 0 0 3px rgba(80,230,140,.95), 0 0 18px 5px rgba(60,220,120,.55); cursor: pointer; }
+.card.target-sel .face { box-shadow: 0 0 0 4px #3df, 0 0 24px 8px rgba(60,220,255,.85); }
+body[data-playing="patti"] .card.target .face { box-shadow: 0 0 0 3px rgba(80,230,140,.95), 0 0 18px 5px rgba(60,220,120,.55); }
+body[data-playing="patti"] .card.target-sel .face { box-shadow: 0 0 0 4px #3df, 0 0 24px 8px rgba(60,220,255,.85); }
+#prompt .hint { margin: -4px 0 8px; font-size: .85rem; opacity: .8; }
+
+/* live scoreboard + latest moves */
+.live-board { position: absolute; right: 12px; top: 78px; z-index: 9; width: 250px; color: #fff; font-size: 13px;
+  background: rgba(12,10,16,.72); backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,.14); border-radius: 16px; box-shadow: 0 10px 26px rgba(0,0,0,.4); overflow: hidden; }
+body[data-playing="patti"] .live-board { border-color: rgba(232,185,35,.4); }
+.lb-head { display: flex; align-items: center; gap: 8px; width: 100%; border: 0; background: none; color: #ffe08a; font: 15px var(--fun); padding: 9px 12px 6px; cursor: pointer; text-align: left; }
+.lb-head .ic { width: 18px; height: 18px; }
+.lb-caret { margin-left: auto; width: 8px; height: 8px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); transition: transform .2s; display: none; }
+.live-board ul { list-style: none; margin: 0; padding: 0 8px; }
+.live-board li { display: grid; grid-template-columns: 1fr auto; gap: 0 8px; align-items: baseline; padding: 5px 6px; border-radius: 9px; }
+.live-board li + li { border-top: 1px solid rgba(255,255,255,.07); }
+.live-board li b { font: 15px var(--fun); color: #fff; white-space: nowrap; }
+.live-board li small { grid-column: 1 / -1; color: #c9c2d4; font-size: 11.5px; }
+.live-board li.mine { background: rgba(255,214,90,.14); }
+.live-board li.turn .lb-name::after { content: ''; display: inline-block; width: 7px; height: 7px; margin-left: 6px; border-radius: 50%; background: #4ade80; box-shadow: 0 0 6px #4ade80; vertical-align: middle; }
+.live-board li.good b { color: #7dffa8; }
+.live-board li.bad b { color: #ff8a8a; }
+.lb-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; }
+.lb-foot { margin: 4px 14px 6px; color: #e8d9a8; font-size: 11.5px; }
+.lb-feed { margin: 0; padding: 7px 12px 9px; background: rgba(0,0,0,.25); border-top: 1px solid rgba(255,255,255,.08); font-size: 12px; color: #bdb6c8; }
+.lb-feed div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lb-feed div.new { color: #fff; animation: lb-in .4s ease-out; }
+@keyframes lb-in { from { opacity: 0; transform: translateY(4px); } }
+.lb-caret { display: block; }
+.live-board:not(.open) { width: auto; }
+.live-board:not(.open) .lb-body { display: none; }
+.live-board:not(.open) .lb-head { padding: 7px 12px; }
+.live-board.open .lb-caret { transform: rotate(-135deg); margin-top: 4px; }
+.live-board li small { display: block; }
+@media (max-width: 900px) { .live-board { max-width: min(270px, 70vw); right: 8px; top: 64px; } }
+@media (max-width: 520px) { .live-board { top: 172px; } }
+/* Seep: the move list sits in a strip just above the hand so the floor stays tappable */
+.prompt.dock { left: 50%; bottom: calc(23vh + 6px); transform: translateX(-50%) !important; width: min(820px, 94vw); max-width: 94vw; min-width: 0;
+  padding: 8px 12px 10px; border-radius: 16px; background: rgba(16,14,22,.86); backdrop-filter: blur(8px); text-align: left; }
+.prompt.dock h4 { margin: 0 0 2px; font-size: .95rem; }
+.prompt.dock .hint { margin: 0 0 6px; }
+.prompt.dock .choice-list { flex-direction: row; flex-wrap: wrap; gap: 6px; max-height: 22vh; }
+.prompt.dock .choice-list .btn { width: auto; padding: 7px 12px; font-size: .86rem; min-height: 0; border-radius: 12px; }
+.prompt.dock .pr-btns { position: absolute; right: 10px; top: 6px; margin: 0; }
+.prompt.dock .pr-btns .btn { padding: 4px 10px; font-size: .8rem; min-height: 0; }
+@media (max-width: 520px) { .prompt.dock { bottom: calc(18vh + 4px); } .prompt.dock .choice-list { max-height: 18vh; } }
+
+/* the Desi universe's two halls: desi games (Indian) and the Pro card room */
+body:not([data-desi-theme="pro"]) .hall-pro, body[data-desi-theme="pro"] .hall-indian { display: none !important; }

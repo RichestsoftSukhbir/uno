@@ -317,6 +317,8 @@
     // off to the lower right, clear of the cards being played into a trick
     if (z.pos === 'side') return { x: L.tilt < 40 ? 200 : L.rx * 0.62, y: cy + (L.tilt < 40 ? 330 : 190) };
     if (z.pos === 'left') return { x: -L.pile * 2.6, y: cy };
+    // the open space between the top seat and the right-hand seat
+    if (z.pos === 'upper') return { x: L.rx * (L.tilt < 40 ? 0.55 : 0.5), y: cy - L.ry * (L.tilt < 40 ? 0.3 : 0.42) };
     return { x: 0, y: cy };
   };
   T.floorSpot = function (i, n) {
@@ -387,7 +389,12 @@
       var mp = this.seatPoint(this.view.me == null ? 0 : this.view.me);
       return { x: 0, y: cy + (mp.y - cy) * (tall ? 0.22 : 0.3) + CH * 0.5 + 34 };
     }
-    if (z.type === 'floor') return { x: 0, y: cy - (tall ? 210 : 190) };
+    if (z.type === 'floor') {
+      // just above the top row of floor cards
+      var per = tall ? 4 : 7, gapY = tall ? 130 : 150, rows = Math.ceil((z.items || []).length / per) || 1;
+      return { x: 0, y: cy - (rows - 1) / 2 * gapY - CH * (tall ? 0.4 : 0.45) - 26 };
+    }
+    if (z.type === 'pot' && z.at === 'below') return { x: 0, y: cy + (tall ? 200 : 205) + 90 };
     if (z.type === 'won') { var W = this.wonPos(z.p); return { x: W.x, y: W.y + 80 }; }
     if (z.type === 'pot') return { x: 0, y: cy + 90 };
     return { x: 0, y: cy };
@@ -403,7 +410,10 @@
         var pe = self.zoneEls.pot || (self.zoneEls.pot = el('div', 'pot-stack', self.world, '<i></i><i></i><i></i><i></i><i></i><b></b><small></small>'));
         pe.querySelector('b').textContent = z.amount;
         pe.querySelector('small').textContent = z.sub || '';
-        gsap.set(pe, { x: 0, y: self.L.pileY, z: 55, rotationX: -self.L.tilt * 0.6 });
+        // with cards on the board (Hold'em) the chips sit just below them
+        var potY = self.L.pileY + (z.at === 'below' ? (self.L.tilt < 40 ? 200 : 205) : 0);
+        self.potY = potY;
+        gsap.set(pe, { x: 0, y: potY, z: 55, rotationX: -self.L.tilt * 0.6 });
         var chips = Math.min(5, Math.ceil(z.amount / 30));
         Array.prototype.forEach.call(pe.querySelectorAll('i'), function (c, i) { c.style.display = i < chips ? 'block' : 'none'; });
         return;
@@ -431,7 +441,7 @@
     });
     Object.keys(this.zoneEls).forEach(function (k) { if (!keep[k]) { self.zoneEls[k].remove(); delete self.zoneEls[k]; } });
   };
-  T.potScreen = function () { return this.project(0, this.L.pileY, 20); };
+  T.potScreen = function () { return this.project(0, this.potY != null ? this.potY : this.L.pileY, 20); };
   T.chipsFly = function (from, to, n, cls) {
     for (var i = 0; i < n; i++) {
       var c = el('div', 'fly-chip ' + (cls || ''), this.fx);
@@ -499,6 +509,7 @@
   T.sortHand = function (cards) {
     if (!this.opts.sortHand || !this.opts.sortHand()) return cards;
     var v = this.view;
+    if (v.keepOrder) return cards;            // Rummy: the engine already groups the hand into melds
     if (v.engine === 'patti') {
       // suits alternate colour (♠ ♥ ♣ ♦), ranks low to high with the Ace on top
       var SO = 'SHCD', RO = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
@@ -697,6 +708,8 @@
     // opponents' cards can be picked (Gadha Chor)
     c.addEventListener('click', function () {
       if (rec.loc && rec.loc.indexOf('hand') === 0 && self.opts.onOppCardClick) self.opts.onOppCardClick(rec.id);
+      // cards lying on the table (Seep floor) can be targets for the card you're placing
+      if (rec.loc && rec.loc.indexOf('zone:') === 0 && self.opts.onZoneCardClick) self.opts.onZoneCardClick(rec.id);
     });
     c.addEventListener('pointerdown', function (e) {
       if (rec.loc !== 'mine') return;
@@ -734,9 +747,11 @@
         return;
       }
       var thrown = dy < -90 || (dy < -40 && d.vy < -0.6);
-      if (thrown && self.opts.onCardThrow) {
+      // dropped onto a card lying on the table? (Seep: play it onto that card / house)
+      var dropOn = d.moved ? self.zoneCardAt(e.clientX, e.clientY, rec.id) : null;
+      if ((thrown || dropOn) && self.opts.onCardThrow) {
         self.pendingThrow = rec.id;
-        self.opts.onCardThrow(rec.id);
+        self.opts.onCardThrow(rec.id, dropOn);
       }
       // spring back (if the play is accepted the next update flies it to the pile)
       gsap.to(rec.inner, { x: 0, y: rec.target ? rec.target.iy : 0, rotation: rec.target ? rec.target.fan : 0, duration: 0.45, ease: 'back.out(1.6)' });
@@ -764,6 +779,27 @@
     this.launcher.addEventListener('click', click);
   };
 
+  // the table card (not in my hand) under a screen point
+  T.zoneCardAt = function (x, y, skipId) {
+    var els = document.elementsFromPoint ? document.elementsFromPoint(x, y) : [];
+    for (var i = 0; i < els.length; i++) {
+      var c = els[i].closest && els[i].closest('.card');
+      if (!c || c.dataset.id === skipId) continue;
+      var rec = this.cards[c.dataset.id];
+      if (rec && rec.loc && rec.loc.indexOf('zone:') === 0) return rec.id;
+    }
+    return null;
+  };
+  // highlight floor cards a selected card can go onto, and the ones already chosen
+  T.markTargets = function (targets, chosen) {
+    var self = this;
+    Object.keys(this.cards).forEach(function (id) {
+      var rec = self.cards[id];
+      var on = rec.loc && rec.loc.indexOf('zone:') === 0;
+      rec.el.classList.toggle('target', !!(on && targets && targets.indexOf(id) >= 0));
+      rec.el.classList.toggle('target-sel', !!(on && chosen && chosen.indexOf(id) >= 0));
+    });
+  };
   T.markCards = function (playable, myTurn, selected, pickFrom) {
     var self = this;
     this.selected = selected || [];
