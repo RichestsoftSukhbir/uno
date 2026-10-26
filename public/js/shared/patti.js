@@ -39,6 +39,8 @@
     sideShow: { label: 'Allow side show', type: 'bool' },
     // Bhabhi house rule: what happens when a player's final card can't be beaten by the next player
     scoring: { label: 'Scoring', type: 'select', choices: [['100', '100 points (spades, aces, 10 of diamonds)'], ['30', 'Punjabi 30 points (10♦ 12, 9♠ 9, aces, majority)']] },
+    houseLimit: { label: 'Houses on the floor', type: 'select', choices: [['2', 'Two at most'], ['0', 'No limit']] },
+    seepLimit: { label: 'Seeps per side', type: 'select', choices: [['2', 'Two at most - a third wipes them out'], ['0', 'No limit']] },
     match: { label: 'Match', type: 'select', choices: [['rounds', 'Fixed number of rounds'], ['baazi', 'Baazi - first side to lead by 100 (30 in Punjabi scoring)']] },
     opening: { label: 'Opening card', type: 'select', choices: [['7H', '7 of Hearts opens'], ['7D', '7 of Diamonds opens'], ['any', 'Any seven opens (first player to hold one)']] },
     tpVariant: { label: 'Variant', type: 'select', choices: [['classic', 'Classic - best hand wins'], ['muflis', 'Muflis - lowest hand wins']] },
@@ -65,7 +67,7 @@
       defaults: { rounds: 1, decks: '1', turnTimer: 30 }, options: ['rounds', 'decks', 'turnTimer'] },
     seep: { id: 'seep', universe: 'desi', name: 'Seep (Sweep)', short: 'Seep', players: [2, 4], allowed: [2, 4], accent: '#2a9d8f', sig: { s: 'D', r: '10' },
       tagline: 'Build houses, capture by value and sweep the floor clean for 50 points.',
-      defaults: { rounds: 1, scoring: '100', match: 'rounds', turnTimer: 45 }, options: ['rounds', 'scoring', 'match', 'turnTimer'],
+      defaults: { rounds: 1, scoring: '100', houseLimit: '2', seepLimit: '2', match: 'rounds', turnTimer: 45 }, options: ['rounds', 'scoring', 'houseLimit', 'seepLimit', 'match', 'turnTimer'],
       // turn pacing (ms): CPUs think a little longer, and every move gets a beat to settle on the table
       pace: { botDelay: 1100, settle: 450 } },
     sevens: { id: 'sevens', universe: 'desi', name: 'Satte Pe Satta', short: 'Satte Pe Satta', players: [3, 8], accent: '#e76f51', sig: { s: 'H', r: '7' },
@@ -256,6 +258,7 @@
     this.result = null;
     this.firstTrick = true;
     this.voids = this.players.map(function () { return {}; }); // suits each player has been seen to lack (public)
+    this.known = this.players.map(function () { return {}; }); // cards everyone saw a player pick up (public)
     var order = this.dealAll(this.deck(1), this.dealer + 1);
     this.emit({ t: 'deal', order: order, dealer: this.dealer, round: this.round });
     this.dealer = (this.dealer + 1) % this.players.length;
@@ -282,6 +285,7 @@
   BH.autoNext = function () { return this.phase === 'collect' ? { type: 'collect', key: 'collect' } : null; };
   BH.on_play = function (p, a) {
     var c = this.take(p, a.cardId);
+    delete this.known[p][c.id];
     var led = this.trick.length ? this.trick[0].c.s : null;
     this.trick.push({ p: p, c: c });
     this.emit({ t: 'play', p: p, id: c.id, face: { s: c.s, r: c.r } });
@@ -335,7 +339,7 @@
     if (res.lastCard === 'card') return this.takeLastCard(res);
     var ids = this.trick.map(function (t) { return t.c.id; });
     if (res.pickup) {
-      this.trick.forEach(function (t) { self.players[res.winner].hand.push(t.c); delete self.voids[res.winner][t.c.s]; });
+      this.trick.forEach(function (t) { self.players[res.winner].hand.push(t.c); delete self.voids[res.winner][t.c.s]; self.known[res.winner][t.c.id] = { s: t.c.s, r: t.c.r }; });
       this.sortHand(res.winner);
       this.emit({ t: 'pickup', p: res.winner, ids: ids });
       this.note(this.pname(res.winner) + ' played the highest card and picks up the ' + ids.length + ' cards.');
@@ -364,6 +368,7 @@
     this.players[res.winner].hand.push(t.c);
     this.sortHand(res.winner);
     delete this.voids[res.winner][t.c.s];
+    this.known[res.winner][t.c.id] = { s: t.c.s, r: t.c.r };
     this.emit({ t: 'pickup', p: res.winner, ids: [t.c.id] });
     this.note(this.pname(res.winner) + ' takes ' + cname(t.c) + '.');
     this.trickSize = this.trick.length ? this.trickSize - 1 : 0;
@@ -394,9 +399,11 @@
     var zones = [trickZone(this, label), { id: 'out', type: 'pile', pos: 'side', faceUp: false, label: this.outPile.length ? 'Out · ' + this.outPile.length : '', cards: this.outPile.slice(-8).map(function (c) { return { id: c.id, a: null, b: 'back' }; }) }];
     var led = this.trick.length ? this.trick[0].c.s : null;
     var voids = this.voids.map(function (v) { return Object.keys(v); });
+    var known = this.known.map(function (k) { return Object.keys(k).map(function (id) { return k[id]; }); });
     return this.baseView(viewer, {
       zones: zones,
-      voids: voids,
+      voids: voids, known: known,
+      gone: this.outPile.map(function (c) { return { s: c.s, r: c.r }; }),   // discarded tricks were seen face up
       status: this.statusFor(viewer, this.firstTrick && !this.trick.length ? 'Lead with the Ace of Spades' : (led ? 'Your turn - follow ' + SYM[led] + ' if you can' : 'Your lead - play any card'), 'is playing…')
     });
   };
@@ -1198,9 +1205,13 @@
           out.push({ type: 'raise', value: nv, house: H, items: items.slice(), merge: other(nv, H) });
       } else if (L.length) {
         var pieces = [cv].concat(lvals), total = pieces.reduce(function (a, b) { return a + b; }, 0);
+        var houses = ctx.floor.filter(function (it) { return it.kind === 'house'; }).length;
         for (var V = 9; V <= 13; V++) {
           if (total % V || !splitsInto(pieces, V) || !self.holds(ctx, V, c.id)) continue;
-          out.push({ type: 'build', value: V, items: items.slice(), pakka: total / V >= 2, merge: other(V, -1) });
+          var mg = other(V, -1);
+          // house limit: no new house while the limit stands (joining an existing house is fine)
+          if (ctx.houseLimit && mg < 0 && houses >= ctx.houseLimit) continue;
+          out.push({ type: 'build', value: V, items: items.slice(), pakka: total / V >= 2, merge: mg });
         }
       }
       return out;
@@ -1310,7 +1321,7 @@
       });
       return {
         floor: floor, hand: me.hand.filter(function (c) { return c.a; }).map(function (c) { return { id: c.id, s: c.a.s, r: c.a.r }; }),
-        p: v.me, phase: v.phase, bid: v.bid,
+        p: v.me, phase: v.phase, bid: v.bid, houseLimit: +(v.options && v.options.houseLimit) || 0,
         sameSide: v.teams ? function (a, b) { return a % 2 === b % 2; } : null
       };
     }
@@ -1333,7 +1344,7 @@
   SP.side = function (p) { return this.teams ? p % 2 : p; };
   SP.ctx = function (p) {
     var self = this;
-    return { floor: this.floor, hand: this.players[p].hand, p: p, phase: this.phase, bid: this.bid,
+    return { floor: this.floor, hand: this.players[p].hand, p: p, phase: this.phase, bid: this.bid, houseLimit: +this.o.houseLimit || 0,
       sameSide: this.teams ? function (a, b) { return self.side(a) === self.side(b); } : null };
   };
   SP.startRound = function () {
@@ -1436,17 +1447,27 @@
     var self = this;
     got.forEach(function (x) { self.captured[s].push(x); });
     this.lastCapture = p;
-    var bonus = 0;
+    var bonus = 0, wiped = null;
     if (!this.floor.length) {
       // 100-point: 50, or 25 on the bidder's first play, nothing on the very last turn;
       // 30-point: the capture value of the card played
       bonus = this.thirty() ? low(c.r) : (this.isLastMove() ? 0 : first ? 25 : 50);
-      this.sweeps[s]++;
-      this.sweepPts[s] += bonus;
-      this.emit({ t: 'seep', p: p, bonus: bonus });
+      var lim = +this.o.seepLimit || 0;
+      if (lim && this.sweeps[s] >= lim) {
+        // seep limit: one more than allowed wipes out that side's seeps
+        wiped = this.sweepPts[s];
+        this.sweeps[s] = 0;
+        this.sweepPts[s] = 0;
+        bonus = 0;
+        this.emit({ t: 'seep', p: p, bonus: 0, wiped: true });
+      } else {
+        this.sweeps[s]++;
+        this.sweepPts[s] += bonus;
+        this.emit({ t: 'seep', p: p, bonus: bonus });
+      }
     }
     this.emit({ t: 'capture', p: p, ids: got.map(function (x) { return x.id; }) });
-    this.note(this.pname(p) + ' captures ' + got.length + ' cards with ' + cname(c) + (bonus ? ' - SEEP! +' + bonus : !this.floor.length ? ' - a sweep on the last turn (no bonus)' : '') + '.');
+    this.note(this.pname(p) + ' captures ' + got.length + ' cards with ' + cname(c) + (wiped != null ? ' - a third seep! It wipes out their ' + wiped + ' seep points' : bonus ? ' - SEEP! +' + bonus : !this.floor.length ? ' - a sweep on the last turn (no bonus)' : '') + '.');
     this.afterMove(p);
   };
   // put a new house on the floor, merging into an existing house of the same value (then it's pakka)
@@ -1567,7 +1588,7 @@
     var rows = [];
     for (var t = 0; t < Math.min(2, nSides); t++) {
       rows.push({ label: this.teams ? this.pname(t) + ' & ' + this.pname(t + 2) : this.pname(t), side: t,
-        value: live.total[t] + ' pts', sub: live.cards[t] + ' card pts · ' + this.sweeps[t] + ' seep' + (this.sweeps[t] === 1 ? '' : 's') + ' · ' + this.captured[t].length + ' cards',
+        value: live.total[t] + ' pts', sub: this.sweeps[t] + ' seep' + (this.sweeps[t] === 1 ? '' : 's') + ' · ' + this.captured[t].length + ' cards',
         total: this.o.match === 'baazi' ? 'Baazis ' + this.baazi[t] : 'Total ' + (this.totals[t] + (this.phase === 'roundOver' ? 0 : 0)) });
     }
     var foot = this.o.match === 'baazi' ? 'Baazi lead: ' + (this.diff === 0 ? 'level' : (this.diff > 0 ? rows[0].label : rows[1].label) + ' +' + Math.abs(this.diff)) + ' (to ' + (this.thirty() ? 30 : 100) + ')'
@@ -1622,6 +1643,8 @@
     list.forEach(function (x) { var s = score(x); if (s > bs) { bs = s; best = x; } });
     return best;
   }
+  // CPU tuning (tests compare strategies with it)
+  var TUNE = { trap: 'strict' };
   // CPU players added by other game packs (pro.js)
   var DECIDERS = {};
   // let another file add games built on the same base (the Pro hall)
@@ -1648,26 +1671,71 @@
       case 'bhabhi': {
         var plays = byType.play;
         var led = trick && trick.cards.length ? trick.cards[0].cv.a.s : null;
-        var voids = v.voids || [];
+        var voids = v.voids || [], known = v.known || [], gone = v.gone || [];
         var isVoid = function (pid, suit) { return (voids[pid] || []).indexOf(suit) >= 0; };
         var n = v.players.length;
         var played = {};
         (trick ? trick.cards : []).forEach(function (t) { played[t.p] = true; });
+        var active = function (q) { return !v.players[q].out && v.players[q].count > 0; };
         // players still to play in this trick, in turn order
         var after = [];
-        for (var k = 1; k < n; k++) { var q = (v.me + k) % n; if (!v.players[q].out && !played[q]) after.push(q); }
-        var others = v.players.filter(function (pl) { return pl.id !== v.me && !pl.out; }).map(function (pl) { return pl.id; });
+        for (var k = 1; k < n; k++) { var q = (v.me + k) % n; if (active(q) && !played[q]) after.push(q); }
+        var others = v.players.filter(function (pl) { return pl.id !== v.me && active(pl.id); }).map(function (pl) { return pl.id; });
         var inSuit = function (s) { return me.hand.filter(function (c) { return c.a && c.a.s === s; }).length; };
+        // players who act between me and seat q (they all play before q)
+        var between = function (q) { var out = []; for (var k2 = 1; k2 < n; k2++) { var x = (v.me + k2) % n; if (x === q) break; if (active(x)) out.push(x); } return out; };
+        var knownHas = function (x, s, above) { return (known[x] || []).some(function (c) { return c.s === s && hi(c.r) > above; }); };
+        // could anyone else still hold a card of suit s lower than r? (cards in my hand or already gone can't be)
+        var lowerOut = function (s, r) {
+          for (var lr = 2; lr < r; lr++) {
+            var rank = RANKS[lr - 2];
+            var mine = me.hand.some(function (c) { return c.a && c.a.s === s && c.a.r === rank; });
+            var seen = gone.some(function (c) { return c.s === s && c.r === rank; });
+            if (!mine && !seen) return true;
+          }
+          return false;
+        };
+        // how likely is player x to have none of suit s? (from the cards nobody has seen yet and x's hand size)
+        var seenCount = {}, unseenTotal = 52 - me.hand.length - gone.length;
+        me.hand.forEach(function (c) { if (c.a) seenCount[c.a.s] = (seenCount[c.a.s] || 0) + 1; });
+        gone.forEach(function (c) { seenCount[c.s] = (seenCount[c.s] || 0) + 1; });
+        var pVoid = function (x, s) {
+          if (isVoid(x, s)) return 1;
+          if ((known[x] || []).some(function (c) { return c.s === s; })) return 0;
+          var u = 13 - (seenCount[s] || 0);
+          return Math.pow(Math.max(0, 1 - u / Math.max(1, unseenTotal)), v.players[x].count);
+        };
+        // chance that somebody playing before seat q follows suit s (and so plays above my low card)
+        var coverBefore = function (q, s) { var pv = 1; between(q).forEach(function (x) { pv *= pVoid(x, s); }); return 1 - pv; };
         return pickBy(plays, function (a) {
           var f = face(v, a.cardId);
           var r = hi(f.r);
           if (!led) {
-            // lead low, from a short suit (so I can run out of it and thulla later),
-            // and never into a suit somebody has already shown they lack
-            var danger = others.some(function (q) { return isVoid(q, f.s); });
-            return -r - inSuit(f.s) * 1.5 - (danger ? 40 + r : 0) + rnd() * noise;
+            var voidOpp = others.filter(function (q) { return isVoid(q, f.s); });
+            if (!voidOpp.length) {
+              // safe suit: lead low, from a short suit (run out of it to thulla later); a known big card
+              // in an opponent's hand makes the suit even better - they may be forced to play it
+              var bait = others.some(function (q) { return knownHas(q, f.s, r); }) ? 2 : 0;
+              return -r - inSuit(f.s) * 1.5 + bait + rnd() * noise;
+            }
+            // somebody lacks this suit. It's a TRAP if, before each such player, someone else has to follow
+            // with a higher card: my card is the lowest one left, or a player in between is known to hold a bigger one
+            var trap = TUNE.trap !== 'off' && voidOpp.every(function (q) {
+              var mid = between(q).filter(function (x) { return !isVoid(x, f.s); });
+              if (!mid.length) return false;
+              // spring it only when nobody can duck under my card (it's the lowest left in the suit)
+              // and someone in between almost certainly still has the suit - so they must play higher
+              return !lowerOut(f.s, r) && coverBefore(q, f.s) >= 0.93;
+            });
+            if (trap && r <= 9) return 12 - r + rnd() * noise;
+            // otherwise avoid it - and if every suit is dangerous, lead where someone is most likely to cover me
+            var cover = Math.min.apply(null, voidOpp.map(function (q) { return coverBefore(q, f.s); }));
+            return -60 + cover * 30 - r * (lowerOut(f.s, r) ? 1 : 0.3) + rnd() * noise;
           }
-          if (f.s !== led) return r + rnd() * noise;                  // thulla: dump the biggest card
+          if (f.s !== led) {
+            // thulla: get rid of a big card, preferably the last of a suit (so I can thulla that suit next time)
+            return r + (inSuit(f.s) === 1 ? 5 : 0) + rnd() * noise;
+          }
           var top = 0;
           trick.cards.forEach(function (t) { if (t.cv.a.s === led) top = Math.max(top, hi(t.cv.a.r)); });
           var thullaComing = after.some(function (q) { return isVoid(q, led); });
@@ -1789,6 +1857,6 @@
     GAMES: GAMES, OPTS: OPTS, SUITS: SUITS, RANKS: RANKS, SYM: SYM, SUIT_NAME: SUIT_NAME, RANK_WORD: RANK_WORD,
     create: create, decide: decide, handRank: handRank, cmpHands: cmpHands, seepPoints: seepPts, SeepRules: SeepRules,
     // building blocks for other game packs
-    Base: Base, proto: B, addGames: addGames, assign: assign, rndFn: rndFn, low: low, hi: hi, cname: cname, trickZone: trickZone, shuffle: shuffle
+    Base: Base, proto: B, addGames: addGames, TUNE: TUNE, assign: assign, rndFn: rndFn, low: low, hi: hi, cname: cname, trickZone: trickZone, shuffle: shuffle
   };
 });

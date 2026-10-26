@@ -281,9 +281,12 @@
           var off = i - (k - 1) / 2;
           var sel = self.selected.indexOf(cv.id) >= 0;
           var lift = self.handFocus != null && Math.round(self.handFocus) === i ? -30 : 0;
+          // the fan curves down at the ends, which brings the outer cards nearer the camera; take that
+          // depth back out so every card lies on the one to its left (index corners showing, like a real hand)
+          var arcY = Math.abs(off) * Math.abs(off) * 0.9 * (fanStep / 3);
           t[cv.id] = {
-            cv: cv, loc: 'mine', x: xs[i], y: L.handY + Math.abs(off) * Math.abs(off) * 0.9 * (fanStep / 3), z: L.handZ,
-            rx: -th, rz: 0, fan: self.handFocus != null ? off * fanStep * 0.35 : off * fanStep, iz: i * 0.35, ry: heldRY, iy: (sel ? -38 : 0) + lift, order: i, mine: true, sc: L.hs
+            cv: cv, loc: 'mine', x: xs[i], y: L.handY + arcY, z: L.handZ,
+            rx: -th, rz: 0, fan: self.handFocus != null ? off * fanStep * 0.35 : off * fanStep, iz: i * 1.5 - arcY * Math.sin(rad(L.tilt)), ry: heldRY, iy: (sel ? -38 : 0) + lift, order: i, mine: true, sc: L.hs
           };
         });
         return;
@@ -1180,7 +1183,10 @@
           tl.call(function () { self.banner(e.honest ? 'TRUTH!' : 'CAUGHT!', e.honest ? 'good' : 'bad'); }, null, at + 0.6);
           break;
         case 'seep':
-          tl.call(function () { S.play('win'); S.say('Seep!', 'hi'); self.banner('SEEP! +50', 'good'); self.confetti(); }, null, at + 0.4); break;
+          tl.call(function () {
+            if (e.wiped) { S.play('lose'); self.banner('3rd SEEP - WIPED OUT!', 'bad'); return; }
+            S.play('win'); S.say('Seep!', 'hi'); self.banner(e.bonus ? 'SEEP! +' + e.bonus : 'SEEP!', 'good'); self.confetti();
+          }, null, at + 0.4); break;
         case 'capture':
           tl.call(function () { S.play('place'); }, null, at); break;
         case 'build':

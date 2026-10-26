@@ -44,6 +44,8 @@
     S.setPack(u === 'desi' || playingDesi ? th : null);
     document.title = u === 'desi' ? (th === 'pro' ? 'Card Room' : 'Desi Patti') + ' - UNO Arena' : 'UNO Arena';
     $$('.uni-switch button').forEach(function (b) { b.classList.toggle('active', b.dataset.u === u); });
+    var hall = u === 'desi' ? th : 'uno';
+    $$('#hallTabs [data-hall]').forEach(function (b, i) { b.classList.toggle('active', b.dataset.hall === hall); if (b.dataset.hall === hall) $('#hallTabs').style.setProperty('--hall-i', i); });
     $$('.theme-switch button').forEach(function (b) { b.classList.toggle('active', b.dataset.t === th); });
   }
   function hallTransition(kind, mid) {
@@ -336,7 +338,7 @@
     });
 
     var home = $('#screen-home');
-    function scrollTo(id) { var t = id === 'top' ? 0 : $('#lp' + id.charAt(0).toUpperCase() + id.slice(1)).offsetTop - 70; home.scrollTo({ top: t, behavior: 'smooth' }); }
+    function scrollTo(id) { var t = id === 'top' ? 0 : $('#lp' + id.charAt(0).toUpperCase() + id.slice(1)).offsetTop - $('#lpNav').offsetHeight - 8; home.scrollTo({ top: t, behavior: 'smooth' }); }
     $$('[data-scroll]').forEach(function (a) { a.onclick = function (e) { e.preventDefault(); scrollTo(a.dataset.scroll); }; });
     home.addEventListener('scroll', function () { $('#lpNav').classList.toggle('solid', home.scrollTop > 40); });
     var quick = function () {
@@ -354,6 +356,27 @@
     $('#navRules').onclick = function (e) { e.preventDefault(); openRules(hallDefault()); };
     $$('.uni-switch button').forEach(function (b) { b.onclick = function () { setUniverse(b.dataset.u); }; });
     $$('.theme-switch button').forEach(function (b) { b.onclick = function () { setDesiTheme(b.dataset.t); }; });
+    // phones: one three-way hall selector (UNO / Desi / Pro)
+    $$('#hallTabs [data-hall]').forEach(function (b) {
+      b.onclick = function () {
+        var h = b.dataset.hall;
+        if (h === 'uno') return setUniverse('uno');
+        if (settings.universe === 'desi') return setDesiTheme(h);
+        settings.desiTheme = h;                // switch hall and theme in one transition
+        setUniverse('desi');
+      };
+    });
+    // phones: bottom dock
+    $$('#mDock [data-dock]').forEach(function (b) {
+      b.onclick = function () {
+        var d = b.dataset.dock;
+        if (d === 'play') return $('#btnQuick').click();
+        if (d === 'games') return scrollTo('modes');
+        if (d === 'rules') return $('#btnHowTo').click();
+        if (d === 'online') return $('#btnOnline').click();
+        if (d === 'pass') return $('#btnPassPlay').click();
+      };
+    });
     $('#btnSettingsHome').onclick = openSettings;
   }
 
@@ -419,19 +442,60 @@
     $('#onName').value = settings.name || '';
     $('#cpuAvatar').innerHTML = av(settings.avatar);
     $('#onAvatar').innerHTML = av(settings.avatar);
-    $('#cpuCount').textContent = setup.cpuCount;
-    buildOptForm($('#optForm'), variant, setup.opts, function (k, v) { setup.opts[k] = v; });
+    $('.gs').style.setProperty('--accent', V.accent || '#c1121f');
+    $('#houseRules').open = false;
+    buildOptForm($('#optForm'), variant, setup.opts, function (k, v) { setup.opts[k] = v; rulesSummary(); });
+    renderLineup();
     setMode(setup.mode);
     renderPass();
     showScreen('setup');
+  }
+  // one line that sums up the table rules (shown on the collapsed "Table rules" row)
+  function rulesSummary() {
+    var V = E.VARIANTS[setup.variant];
+    var parts = V.options.slice(0, 4).map(function (k) {
+      var d = E.OPTION_DEFS[k];
+      if (!d) return '';
+      var v = setup.opts[k] != null ? setup.opts[k] : V.defaults[k];
+      if (k === 'rounds') return v + ' round' + (+v === 1 ? '' : 's');
+      if (k === 'turnTimer') return +v ? v + 's turns' : 'no timer';
+      return optValueText(d, v);
+    }).filter(Boolean);
+    $('#rulesSummary').textContent = parts.join(' · ');
+    var n = setup.mode === 'pass' ? setup.pass.length : setup.cpuCount + 1;
+    $('#startSummary').textContent = n + ' players' + (setup.mode === 'cpu' ? ' · ' + setup.level.charAt(0).toUpperCase() + setup.level.slice(1) : '');
+  }
+  // you + the CPUs you're up against
+  function renderLineup() {
+    $('#cpuCount').textContent = setup.cpuCount;
+    var faces = '<span class="gs-face me">' + av(settings.avatar) + '<small>You</small></span><span class="gs-vs">VS</span>';
+    for (var i = 0; i < setup.cpuCount; i++) faces += '<span class="gs-face">' + av(BOT_AVATARS[i % BOT_AVATARS.length]) + '</span>';
+    $('#cpuLineup').innerHTML = faces;
+    $('#cpuLineup').classList.toggle('many', setup.cpuCount > (window.innerWidth <= 640 ? 3 : 5));
+    rulesSummary();
   }
   function setMode(mode) {
     setup.mode = mode;
     $$('#modeTabs button').forEach(function (b) { b.classList.toggle('active', b.dataset.mode === mode); });
     $$('.mode-pane').forEach(function (p) { p.classList.toggle('hidden', p.dataset.pane !== mode); });
     $('#btnStart').classList.toggle('hidden', mode === 'online');
+    $('.gs-foot').classList.toggle('hidden', mode === 'online');     // online games start from the room
     $('#houseRules').classList.toggle('hidden', false);
     if (mode === 'online') connectOnline();
+    rulesSummary();
+  }
+  // short text for a choice chip: the part before " - " (unless two choices would read the same)
+  function chipText(d, c) {
+    var short = function (x) { return x[1].split(' - ')[0].replace(/ \(.*\)$/, ''); };
+    var dup = d.choices.filter(function (x) { return short(x) === short(c); }).length > 1;
+    // two choices start the same ("On - ..."): show what differs instead
+    if (dup && c[1].indexOf(' - ') > 0) { var rest = c[1].split(' - ').slice(1).join(' - '); return rest.charAt(0).toUpperCase() + rest.slice(1); }
+    return dup ? c[1] : short(c);
+  }
+  function optValueText(d, val) {
+    if (d.type === 'bool') return val ? 'On' : 'Off';
+    if (d.type === 'select') { var c = d.choices.filter(function (x) { return x[0] === String(val); })[0]; return c ? chipText(d, c) : val; }
+    return String(val);
   }
   function buildOptForm(root, variant, opts, onChange, disabled) {
     var V = E.VARIANTS[variant];
@@ -439,32 +503,37 @@
     V.options.forEach(function (k) {
       var d = E.OPTION_DEFS[k];
       if (!d) return;
-      var row = document.createElement('label');
-      row.className = 'opt opt-' + d.type;
+      var row = document.createElement('div');
+      row.className = 'opt-card opt-' + d.type;
       var val = opts[k] != null ? opts[k] : V.defaults[k];
-      var input;
-      if (d.type === 'bool') {
-        row.innerHTML = '<input type="checkbox"' + (val ? ' checked' : '') + '><span>' + esc(d.label) + '</span>';
-        input = row.querySelector('input');
-        input.onchange = function () { onChange(k, input.checked); };
-      } else if (d.type === 'select') {
-        row.innerHTML = '<span>' + esc(d.label) + '</span><select>' + d.choices.map(function (c) { return '<option value="' + c[0] + '"' + (c[0] === val ? ' selected' : '') + '>' + esc(c[1]) + '</option>'; }).join('') + '</select>';
-        input = row.querySelector('select');
-        input.onchange = function () {
-          if (d.adultGate && input.value === 'adult') {
-            return ageGate(function (ok) {
-              if (ok) onChange(k, 'adult');
-              else { input.value = 'family'; onChange(k, 'family'); }
-            });
-          }
-          onChange(k, input.value);
-        };
-      } else {
-        row.innerHTML = '<span>' + esc(d.label) + '</span><input type="number" min="' + d.min + '" max="' + d.max + '" step="' + d.step + '" value="' + val + '">';
-        input = row.querySelector('input');
-        input.onchange = function () { var n = Math.max(d.min, Math.min(d.max, +input.value || d.min)); input.value = n; onChange(k, n); };
+      var label = d.label.replace(/ \(.*\)$/, '');
+      var set = function (x) { val = x; onChange(k, x); draw(); };
+      function draw() {
+        if (d.type === 'bool') {
+          row.innerHTML = '<span class="oc-title">' + esc(label) + '</span><button class="oc-toggle' + (val ? ' on' : '') + '" role="switch" aria-checked="' + !!val + '"' + (disabled ? ' disabled' : '') + '><i></i></button>';
+          row.querySelector('button').onclick = function () { set(!val); };
+        } else if (d.type === 'select') {
+          var cur = d.choices.filter(function (c) { return c[0] === String(val); })[0];
+          var help = cur && cur[1].indexOf(' - ') > 0 ? cur[1].split(' - ').slice(1).join(' - ') : '';
+          if (help && help.toLowerCase() === chipText(d, cur).toLowerCase()) help = '';   // don't repeat the chip
+          row.innerHTML = '<span class="oc-title">' + esc(label) + '</span><div class="oc-chips">' + d.choices.map(function (c) {
+            return '<button data-v="' + esc(c[0]) + '"' + (c[0] === String(val) ? ' class="on"' : '') + (disabled ? ' disabled' : '') + '>' + esc(chipText(d, c)) + '</button>';
+          }).join('') + '</div>' + (help ? '<p class="oc-help">' + esc(help.charAt(0).toUpperCase() + help.slice(1)) + '</p>' : '');
+          Array.prototype.forEach.call(row.querySelectorAll('[data-v]'), function (b) {
+            b.onclick = function () {
+              var x = b.dataset.v;
+              if (d.adultGate && x === 'adult') return ageGate(function (ok) { set(ok ? 'adult' : 'family'); });
+              set(x);
+            };
+          });
+        } else {
+          row.innerHTML = '<span class="oc-title">' + esc(label) + (k === 'turnTimer' && +val === 0 ? ' <small>off</small>' : '') + '</span><div class="oc-num"><button data-d="-1"' + (disabled ? ' disabled' : '') + '>−</button><b>' + val + (k === 'turnTimer' && +val ? 's' : '') + '</b><button data-d="1"' + (disabled ? ' disabled' : '') + '>+</button></div>';
+          Array.prototype.forEach.call(row.querySelectorAll('[data-d]'), function (b) {
+            b.onclick = function () { set(Math.max(d.min, Math.min(d.max, (+val || 0) + (+b.dataset.d) * (d.step || 1)))); };
+          });
+        }
       }
-      if (disabled) input.disabled = true;
+      draw();
       root.appendChild(row);
     });
     if (V.fixed) {
@@ -501,37 +570,41 @@
     var V = E.VARIANTS[setup.variant];
     setup.pass.forEach(function (p, i) {
       var row = document.createElement('div');
-      row.className = 'player-row';
-      row.innerHTML = '<button class="avatar-pick" title="Change avatar">' + av(p.avatar) + '</button>' +
-        (p.kind === 'human' ? '<input maxlength="16" value="' + esc(p.name) + '">' : '<span class="pname">' + esc(p.name) + '</span><select><option value="easy">Easy</option><option value="normal">Normal</option><option value="hard">Hard</option></select>') +
-        '<span class="tag-kind">' + (p.kind === 'human' ? 'Human' : 'CPU') + '</span><button class="btn tiny ghost" data-rm title="Remove">' + ic('cancel-01') + '</button>';
+      row.className = 'player-row gs-player' + (p.kind === 'human' ? '' : ' cpu');
+      var lv = p.level || 'normal';
+      row.innerHTML = '<span class="gs-num">' + (i + 1) + '</span><button class="avatar-pick" title="Change avatar">' + av(p.avatar) + '</button>' +
+        (p.kind === 'human' ? '<input maxlength="16" value="' + esc(p.name) + '" aria-label="Player name">'
+          : '<span class="pname">' + esc(p.name) + '</span><button class="gs-lv lv-' + lv + '" title="Tap to change difficulty">' + lv.charAt(0).toUpperCase() + lv.slice(1) + '</button>') +
+        (setup.pass.length > 2 ? '<button class="gs-x" data-rm title="Remove">' + ic('cancel-01') + '</button>' : '');
       var inp = row.querySelector('input');
       if (inp) inp.oninput = function () { p.name = inp.value; };
-      var sel = row.querySelector('select');
-      if (sel) { sel.value = p.level || 'normal'; sel.onchange = function () { p.level = sel.value; }; }
+      var lvb = row.querySelector('.gs-lv');
+      if (lvb) lvb.onclick = function () { var order = ['easy', 'normal', 'hard']; p.level = order[(order.indexOf(lv) + 1) % 3]; renderPass(); };
       row.querySelector('.avatar-pick').onclick = function () { pickAvatar(function (a) { p.avatar = a; renderPass(); }); };
-      row.querySelector('[data-rm]').onclick = function () { if (setup.pass.length > 2) { setup.pass.splice(i, 1); renderPass(); } };
+      var rm = row.querySelector('[data-rm]');
+      if (rm) rm.onclick = function () { if (setup.pass.length > 2) { setup.pass.splice(i, 1); renderPass(); } };
       root.appendChild(row);
     });
     $('#passAddHuman').disabled = $('#passAddBot').disabled = setup.pass.length >= V.players[1];
+    rulesSummary();
   }
   function bindSetup() {
     $$('[data-back]').forEach(function (b) { b.onclick = function () { showScreen('home'); }; });
     $$('#modeTabs button').forEach(function (b) { b.onclick = function () { setMode(b.dataset.mode); }; });
-    $$('#screen-setup .stepper button').forEach(function (b) {
+    $$('#screen-setup .gs-step').forEach(function (b) {
       b.onclick = function () {
         var V = E.VARIANTS[setup.variant];
         var allowed = V.allowed || null;
         var want = setup.cpuCount + 1 + +b.dataset.step;
         if (allowed) { var idx = allowed.indexOf(setup.cpuCount + 1) + +b.dataset.step; want = allowed[Math.max(0, Math.min(allowed.length - 1, idx))]; }
         setup.cpuCount = Math.max(V.players[0], Math.min(V.players[1], want)) - 1;
-        $('#cpuCount').textContent = setup.cpuCount;
+        renderLineup();
       };
     });
     $$('#cpuLevel button').forEach(function (b) {
-      b.onclick = function () { setup.level = b.dataset.v; $$('#cpuLevel button').forEach(function (x) { x.classList.toggle('active', x === b); }); };
+      b.onclick = function () { setup.level = b.dataset.v; $$('#cpuLevel button').forEach(function (x) { x.classList.toggle('active', x === b); }); rulesSummary(); };
     });
-    $('#cpuAvatar').onclick = function () { pickAvatar(function (a) { settings.avatar = a; saveSettings(); $('#cpuAvatar').innerHTML = av(a); $('#onAvatar').innerHTML = av(a); }); };
+    $('#cpuAvatar').onclick = function () { pickAvatar(function (a) { settings.avatar = a; saveSettings(); $('#cpuAvatar').innerHTML = av(a); $('#onAvatar').innerHTML = av(a); renderLineup(); }); };
     $('#onAvatar').onclick = $('#cpuAvatar').onclick;
     $('#cpuName').oninput = function () { settings.name = this.value.trim(); saveSettings(); $('#onName').value = settings.name; };
     $('#onName').oninput = function () { settings.name = this.value.trim(); saveSettings(); $('#cpuName').value = settings.name; };
@@ -567,7 +640,33 @@
       app.net.send({ t: 'join', code: c });
     };
     $('#onCode').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('#onJoin').click(); });
-    $('#onRefresh').onclick = function () { app.net.send({ t: 'list' }); };
+    $('#onRefresh').onclick = function () { app.net.send({ t: 'list' }); gsap.fromTo('#onRefresh .ic', { rotation: 0 }, { rotation: 360, duration: 0.6 }); };
+    $$('.gs-public [data-pub]').forEach(function (b) {
+      b.onclick = function () { $('#onPublic').checked = b.dataset.pub === '1'; $$('.gs-public [data-pub]').forEach(function (x) { x.classList.toggle('on', x === b); }); };
+    });
+    $('#onCode').addEventListener('input', function () { this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, ''); });
+  }
+  // opened an invite link: confirm a name (and avatar), then go straight into the room
+  function joinFromLink(code) {
+    if (!app.net.available()) { toast('Online play needs the game server', 'error'); return; }
+    var card = modal('<div class="join-link"><span class="jl-kicker">You\'re invited!</span><h2>Join room <span class="code">' + esc(code) + '</span></h2>' +
+      '<div class="gs-me"><button class="avatar-pick" id="jlAvatar" title="Change avatar">' + av(settings.avatar) + '</button><input id="jlName" maxlength="16" placeholder="Your name" value="' + esc(settings.name || '') + '"></div>' +
+      '<button class="btn big primary gs-play" id="jlGo">' + ic('play') + ' Join game</button><button class="btn ghost" data-close>Not now</button></div>', { id: 'joinlink', cls: 'join-modal' });
+    $('#jlAvatar', card).onclick = function () {
+      pickAvatar(function (a) { settings.avatar = a; saveSettings(); joinFromLink(code); });
+    };
+    var go = function () {
+      var name = $('#jlName', card).value.trim();
+      if (!name) { toast('Enter your name', 'error'); $('#jlName', card).focus(); return; }
+      settings.name = name; saveSettings();
+      closeModal();
+      app.net.connect({ name: name, avatar: settings.avatar });
+      app.net.send({ t: 'join', code: code });
+      toast('Joining room ' + code + '…', 'info');
+    };
+    $('#jlGo', card).onclick = go;
+    $('#jlName', card).addEventListener('keydown', function (e) { if (e.key === 'Enter') go(); });
+    if (!settings.name) setTimeout(function () { $('#jlName', card).focus(); }, 300);
   }
   function ensureName() {
     if (!settings.name) { toast('Enter your name first', 'error'); $('#onName').focus(); return false; }
@@ -671,20 +770,23 @@
     if (g.phase === 'roundOver' || g.gameOver) return;
     var actor = g.actor();
     if (actor == null || s.humans.indexOf(actor) < 0 || actor === s.viewer) return;
-    // hand the device to the next human
-    s.controller.pause();
-    var p = g.players[actor];
-    $('#curtainName').textContent = p.name;
-    $('#curtainAv').innerHTML = av(p.avatar);
-    $('#curtain').classList.remove('hidden');
-    gsap.fromTo('#curtain .curtain-card', { y: 40, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4 });
-    $('#curtainGo').onclick = function () {
-      $('#curtain').classList.add('hidden');
-      s.viewer = actor;
-      app.selected = [];
-      enqueue({ view: g.view(actor), events: [] });
-      s.controller.resume();
-    };
+    // pass and play: the table simply turns to the next player - nothing to tap through, the game never stops
+    s.viewer = actor;
+    app.selected = [];
+    app.pattiChoice = null;
+    enqueue({ view: g.view(actor), events: [] });
+    turnBanner(g.players[actor]);
+  }
+  // a short "your turn" banner that never blocks the table
+  function turnBanner(p) {
+    var b = $('#turnBanner');
+    if (!b) { b = document.createElement('div'); b.id = 'turnBanner'; b.className = 'turn-banner'; $('#screen-game').appendChild(b); }
+    b.innerHTML = '<span class="tb-av">' + av(p.avatar) + '</span><b>' + esc(p.name) + '</b><span>your turn</span>';
+    gsap.killTweensOf(b);
+    gsap.timeline()
+      .fromTo(b, { opacity: 0, y: -16, scale: 0.9 }, { opacity: 1, y: 0, scale: 1, duration: 0.3, ease: 'back.out(2)' })
+      .to(b, { opacity: 0, y: -10, duration: 0.35, delay: 1.4 });
+    S.play('turn');
   }
 
   /* ------------------------------------------------------------------ */
@@ -997,35 +1099,28 @@
     app.selected = app.selected.filter(function (id) { return mine.indexOf(id) >= 0; });
   }
 
-  // live score + what just happened, for the games that publish a scoreboard
+  // live score: one compact tile per player (or team), always on screen
   function renderBoard(v) {
     var el = $('#liveBoard');
     var sb = v && v.scoreboard;
     if (!sb) { el.classList.add('hidden'); return; }
     el.classList.remove('hidden');
     var me = v.me, mySide = v.teams && me != null ? me % 2 : null;
-    var rows = sb.rows.map(function (r) {
+    var tiles = sb.rows.map(function (r) {
+      var pid = r.p != null ? r.p : r.side;
+      var pl = v.players[pid] || {};
       var mine = r.p != null ? r.p === me : (r.side != null && r.side === mySide);
-      var turn = r.p != null && r.p === v.actor;
-      return '<li class="' + (mine ? 'mine ' : '') + (turn ? 'turn ' : '') + (r.good ? 'good ' : '') + (r.bad ? 'bad' : '') + '"><span class="lb-name">' + esc(r.label) + '</span><b>' + esc(r.value) + '</b>' +
-        (r.sub || r.total ? '<small>' + esc([r.sub, r.total].filter(Boolean).join(' · ')) + '</small>' : '') + '</li>';
+      var turn = r.p != null ? r.p === v.actor : (v.actor != null && r.side != null && v.actor % 2 === r.side);
+      var cls = 'lb-tile' + (mine ? ' mine' : '') + (turn ? ' turn' : '') + (r.good ? ' good' : '') + (r.bad ? ' bad' : '');
+      var sub = [r.sub, r.total].filter(Boolean).join(' · ');
+      return '<div class="' + cls + '"><span class="lb-av">' + av(pl.avatar || (pl.kind === 'bot' ? 'robot-01' : 'user')) + '</span>' +
+        '<span class="lb-txt"><span class="lb-name">' + esc(r.label) + '</span>' + (sub ? '<small>' + esc(sub) + '</small>' : '') + '</span>' +
+        '<b class="lb-val">' + esc(r.value) + '</b></div>';
     }).join('');
-    var feed = (app.recentLog || []).slice(-3).map(function (t, i, a) { return '<div' + (i === a.length - 1 ? ' class="new"' : '') + '>' + esc(t) + '</div>'; }).join('');
-    var html = '<button class="lb-head" type="button">' + I.svg('champion') + '<span>' + esc(sb.title) + '</span><i class="lb-caret"></i></button>' +
-      '<div class="lb-body"><ul>' + rows + '</ul>' + (sb.foot ? '<p class="lb-foot">' + esc(sb.foot) + '</p>' : '') + (feed ? '<div class="lb-feed">' + feed + '</div>' : '') + '</div>';
+    var html = tiles + (sb.foot ? '<div class="lb-foot">' + esc(sb.foot) + '</div>' : '');
     if (el.dataset.html === html) return;
-    if (el.dataset.html == null) {
-      // open by default only where there's room for it beside the players
-      var pref = null;
-      try { pref = localStorage.getItem('uno.board'); } catch (e) { /* ignore */ }
-      el.classList.toggle('open', pref ? pref === 'open' : window.innerHeight >= 760 && window.innerWidth > 900);
-    }
     el.dataset.html = html;
     el.innerHTML = html;
-    $('.lb-head', el).onclick = function () {
-      el.classList.toggle('open');
-      try { localStorage.setItem('uno.board', el.classList.contains('open') ? 'open' : 'closed'); } catch (e) { /* ignore */ }
-    };
   }
 
   // the table takes the look of the game's own hall (a Pro game gets the card room even from the Desi page)
@@ -1495,7 +1590,11 @@
   /* ------------------------------------------------------------------ */
   function connectOnline() {
     var net = app.net;
-    if (!net.available()) { $('#netStatus').textContent = 'Online play needs the UNO Arena server (run "npm start" and open http://localhost:3000).'; return; }
+    if (!net.available()) {
+      $('#netStatus').textContent = 'No server'; $('#netStatus').dataset.state = 'error';
+      $('#roomList').innerHTML = '<p class="gs-empty">Online play needs the game server (run "npm start" and open http://localhost:3000).</p>';
+      return;
+    }
     net.connect({ name: settings.name || 'Player', avatar: settings.avatar });
     net.send({ t: 'list' });
   }
@@ -1503,15 +1602,19 @@
     var net = app.net = new window.UNONet();
     net.on('status', function (s) {
       var map = { connecting: 'Connecting to server…', online: 'Connected', offline: 'Disconnected - retrying…', error: 'Could not reach the server', unavailable: 'Online play needs the server (npm start).' };
-      $('#netStatus').textContent = map[s.state] || '';
+      $('#netStatus').textContent = { connecting: 'Connecting…', online: 'Online', offline: 'Reconnecting…', error: 'No server', unavailable: 'No server' }[s.state] || '';
+      $('#netStatus').dataset.state = s.state;
+      if (s.state !== 'online' && map[s.state] && s.state !== 'connecting') $('#netStatus').title = map[s.state];
       if (s.state === 'offline' && app.session && app.session.type === 'online') toast('Connection lost - reconnecting…', 'warn');
     });
     net.on('welcome', function () { if (app.screen === 'setup' && setup.mode === 'online') net.send({ t: 'list' }); });
     net.on('list', function (m) {
       var root = $('#roomList');
-      if (!m.rooms.length) { root.innerHTML = '<p class="hint">No open rooms yet - create one!</p>'; return; }
+      if (!m.rooms.length) { root.innerHTML = '<p class="gs-empty">No open rooms right now - create one and invite your friends!</p>'; return; }
       root.innerHTML = m.rooms.map(function (r) {
-        return '<div class="room-row"><b>' + esc(E.VARIANTS[r.variant].name) + '</b><span>' + esc(r.host || '') + '\'s room · ' + r.players + '/' + r.max + '</span><button class="btn tiny" data-code="' + r.code + '">Join</button></div>';
+        var V = E.VARIANTS[r.variant] || { name: r.variant };
+        return '<div class="room-row"><img class="room-card" src="' + Cards.faceImg(sig(r.variant), { back: backOf(r.variant) }) + '" alt=""><span class="room-txt"><b>' + esc(V.name) + '</b><small>' + esc(r.host || '') + '\'s room</small></span>' +
+          '<span class="room-seats">' + ic('user') + r.players + '/' + r.max + '</span><button class="room-join" data-code="' + r.code + '">Join</button></div>';
       }).join('');
       $$('[data-code]', root).forEach(function (b) { b.onclick = function () { if (ensureName()) net.send({ t: 'join', code: b.dataset.code }); }; });
     });
@@ -1564,9 +1667,33 @@
     if (app.screen === 'game' && !$('#chatPanel').classList.contains('open')) $('#chatDot').classList.remove('hidden');
     if (app.screen === 'game' && m.from != null && app.table) toast(m.from + ': ' + m.text, 'chat');
   }
+  // invite links: opening one joins the room straight away
+  function inviteUrl() { return location.origin + location.pathname + '?room=' + $('#lobbyCode').textContent; }
+  function inviteText() {
+    var room = app.session && app.session.room, V = room ? E.VARIANTS[room.variant] : null;
+    return 'Join my ' + (V ? V.name : 'card game') + ' table - room ' + $('#lobbyCode').textContent + ':';
+  }
+  function copyInvite() {
+    var url = inviteUrl();
+    var done = function () { toast('Invite link copied - paste it to your friends!', 'info'); var b = $('#invLink b'); b.textContent = 'Copied!'; setTimeout(function () { b.textContent = 'Copy'; }, 1800); };
+    var fallback = function () {
+      // older browsers / plain http: select a hidden text box and copy
+      var t = document.createElement('textarea');
+      t.value = url; t.style.position = 'fixed'; t.style.opacity = '0';
+      document.body.appendChild(t); t.select();
+      var ok = false; try { ok = document.execCommand('copy'); } catch (e) { /* ignore */ }
+      t.remove();
+      if (ok) done(); else prompt('Copy this link:', url);
+    };
+    if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(url).then(done, fallback); else fallback();
+  }
   function renderLobby(room) {
     var V = E.VARIANTS[room.variant];
     $('#lobbyCode').textContent = room.code;
+    $('#invCode').textContent = room.code;
+    $('#invUrl').textContent = inviteUrl().replace(/^https?:\/\//, '');
+    $('#invWa').href = 'https://wa.me/?text=' + encodeURIComponent(inviteText() + ' ' + inviteUrl());
+    $('#lobbyInvite').classList.toggle('full', room.seats.length >= V.players[1]);
     $('#lobbyVariant').textContent = V.name + ' · ' + room.seats.length + '/' + V.players[1] + ' players' + (room.isPublic ? ' · public' : ' · private');
     $$('.host-only').forEach(function (e) { e.classList.toggle('hidden', !room.isHost); });
     $('#lobbyWait').textContent = room.isHost ? (room.seats.length < 2 ? 'Add a CPU or wait for friends to join' : '') : 'Waiting for the host to start…';
@@ -1586,9 +1713,12 @@
   }
   function bindLobby() {
     $('#lobbyLeave').onclick = function () { app.net.send({ t: 'leave' }); endSession(); showScreen('setup'); };
-    $('#lobbyCopy').onclick = function () {
-      var url = location.origin + location.pathname + '?room=' + $('#lobbyCode').textContent;
-      (navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject()).then(function () { toast('Invite link copied!', 'info'); }, function () { prompt('Share this link:', url); });
+    $('#lobbyCopy').onclick = copyInvite;
+    $('#invLink').onclick = copyInvite;
+    $('#invShare').onclick = function () {
+      var url = inviteUrl(), text = inviteText();
+      if (navigator.share) navigator.share({ title: 'Join my game', text: text, url: url }).catch(function () { /* cancelled */ });
+      else copyInvite();
     };
     $$('[data-bot]').forEach(function (b) { b.onclick = function () { app.net.send({ t: 'addBot', level: b.dataset.bot }); }; });
     $('#lobbyVariantSel').onchange = function () { app.net.send({ t: 'setOpts', variant: this.value }); };
@@ -1654,11 +1784,8 @@
     var params = new URLSearchParams(location.search);
     var room = params.get('room');
     if (room) {
-      openSetup('classic', 'online');
-      $('#onCode').value = room.toUpperCase();
       history.replaceState(null, '', location.pathname);
-      if (settings.name) setTimeout(function () { $('#onJoin').click(); }, 300);
-      else toast('Enter your name, then press Join', 'info');
+      joinFromLink(room.toUpperCase().replace(/[^A-Z0-9]/g, ''));
     }
     // rejoin an online game after a reload (the server remembers our seat)
     try { if (localStorage.getItem('uno.token') && app.net.available() && !room) app.net.connect({ name: settings.name || 'Player', avatar: settings.avatar }); } catch (e) { /* ignore */ }

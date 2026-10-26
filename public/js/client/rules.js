@@ -237,6 +237,7 @@
       '<b>Pakka (cemented) house</b>: play onto loose cards that make the value twice or more - e.g. a <b>9 onto a loose 9</b> (or onto 4+5) while you hold another 9. A card (plus loose cards) equal to an existing house\'s value also makes it pakka. Pakka houses can\'t be broken.',
       '<b>Break / raise</b> someone else\'s ordinary house with one card from your hand (never loose cards, never your own house), if you hold the new value.',
       'Adding to an opponent\'s house needs a card of its value and makes you an owner; adding to your partner\'s house needs neither. A second house of the same value merges into the first and becomes pakka.',
+      '<b>Two houses at most</b> (setup option, on by default): while two houses stand nobody may build a new one - you can still capture, add to or raise the existing houses.',
       'A house owner must keep a card of its value until the house is captured. While your side has a house on the floor you may not throw a loose card if any other move is possible.',
       '<b>Throw</b>: put a card loose on the floor.',
       'When all cards are played, whoever captured last takes what is left on the floor.'
@@ -249,6 +250,7 @@
     ],
     extra: [
       '<b>Seep</b> (sweep): clear the whole floor with one capture - 50 points; only 25 on the bidder\'s very first play, and nothing on the very last turn of the deal.',
+      '<b>Two seeps at most</b> (setup option, on by default): a side can hold two seeps. A third one wipes out that side\'s seep points and counting starts again from zero.',
       '<b>Punjabi 30-point scoring</b> (setup option): 10♦ = 12, 9♠ = 9, 2♠ = 1, each Ace = 1, and 4 points to the side capturing more cards. A sweep scores the capture value of the card played. The deal is redone if the 10♦ or 9♠ would start on the floor. Taking all 30 card points ("satthi") scores 60.',
       '<b>Baazi</b> (setup option): the score difference carries over from deal to deal until a side leads by 100 (30 in Punjabi scoring). In the 100-point game, a side that scores under 9 in a deal loses the baazi at once.',
       'How to play here: tap a card, then either pick a move from the strip above your hand or tap the floor cards / house it should go on (tap several to combine them). You can also drag the card onto a floor card.'

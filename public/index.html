@@ -31,6 +31,9 @@
         <div class="theme-switch uni-desi" title="Desi theme">
           <button data-t="indian" title="Desi games, Indian look">Desi</button><button data-t="pro" title="Professional card-room games">Pro</button>
         </div>
+        <div class="hall-tabs" id="hallTabs" role="tablist" aria-label="Game hall">
+          <button data-hall="uno"><i data-icon="cards-01"></i> UNO</button><button data-hall="indian"><i data-icon="sparkles"></i> Desi</button><button data-hall="pro"><i data-icon="champion"></i> Pro</button><i class="hall-knob"></i>
+        </div>
         <div class="lp-nav-r">
           <button class="lp-round" id="btnSettingsHome" title="Settings"><i data-icon="settings-01"></i></button>
           <button class="cta cta-yellow cta-sm" id="navPlay"><i data-icon="play"></i> Play now</button>
@@ -112,53 +115,72 @@
         </div>
       </section>
 
+      <!-- phones: the game's bottom dock -->
+      <nav class="m-dock" id="mDock" aria-label="Main">
+        <button data-dock="games"><i data-icon="cards-01"></i><span>Games</span></button>
+        <button data-dock="rules"><i data-icon="book-open-01"></i><span>Rules</span></button>
+        <button data-dock="play" class="m-play"><span class="m-play-in"><i data-icon="play"></i></span><span>Play</span></button>
+        <button data-dock="online"><i data-icon="globe"></i><span>Online</span></button>
+        <button data-dock="pass"><i data-icon="smart-phone-01"></i><span>Pass &amp; Play</span></button>
+      </nav>
       <footer class="home-foot"><img src="img/uno-logo.svg" alt=""><p>Card art based on the "UNO Classic cards deck" SVG. Icons by Hugeicons.<br>UNO is a trademark of Mattel &mdash; this is a non-commercial fan project.</p></footer>
     </section>
 
     <!-- SETUP -->
     <section id="screen-setup" class="screen">
-      <div class="panel setup">
-        <div class="setup-head">
-          <button class="btn icon ghost" data-back title="Back"><i data-icon="arrow-left-01"></i></button>
-          <div class="setup-title"><img id="setupCard" alt=""><div><h2 id="setupName"></h2><p id="setupTag"></p></div></div>
-          <button class="btn ghost" id="setupRules"><i data-icon="book-open-01"></i> Rules</button>
+      <div class="panel setup gs">
+        <div class="gs-hero">
+          <button class="gs-round" data-back title="Back"><i data-icon="arrow-left-01"></i></button>
+          <div class="gs-title">
+            <img id="setupCard" class="gs-card" alt="">
+            <div><h2 id="setupName"></h2><p id="setupTag"></p></div>
+          </div>
+          <button class="gs-round" id="setupRules" title="How to play"><i data-icon="book-open-01"></i></button>
         </div>
-        <div class="tabs" id="modeTabs">
-          <button data-mode="cpu" class="active"><i data-icon="robot-01"></i> vs Computer</button>
-          <button data-mode="pass"><i data-icon="smart-phone-01"></i> Pass &amp; Play</button>
-          <button data-mode="online"><i data-icon="globe"></i> Online</button>
+        <div class="gs-modes" id="modeTabs">
+          <button data-mode="cpu" class="active"><i data-icon="robot-01"></i><span>vs CPU</span></button>
+          <button data-mode="pass"><i data-icon="smart-phone-01"></i><span>Pass &amp; Play</span></button>
+          <button data-mode="online"><i data-icon="globe"></i><span>Online</span></button>
         </div>
-        <div class="setup-body">
+        <div class="setup-body gs-body">
           <div class="mode-pane" data-pane="cpu">
-            <div class="row"><label>Your name</label><div class="name-row"><button class="avatar-pick" id="cpuAvatar"></button><input id="cpuName" maxlength="16" placeholder="Your name"></div></div>
-            <div class="row"><label>Opponents</label><div class="stepper"><button data-step="-1">−</button><span id="cpuCount">3</span><button data-step="1">+</button></div></div>
-            <div class="row"><label>Difficulty</label><div class="seg" id="cpuLevel"><button data-v="easy">Easy</button><button data-v="normal" class="active">Normal</button><button data-v="hard">Hard</button><button data-v="mixed">Mixed</button></div></div>
+            <div class="gs-me"><button class="avatar-pick" id="cpuAvatar" title="Change avatar"></button><input id="cpuName" maxlength="16" placeholder="Your name"><span class="gs-edit"><i data-icon="user"></i></span></div>
+            <div class="gs-block">
+              <div class="gs-label">Players</div>
+              <div class="gs-lineup">
+                <button class="gs-step" data-step="-1" title="Fewer opponents">−</button>
+                <div class="gs-faces" id="cpuLineup"></div>
+                <button class="gs-step" data-step="1" title="More opponents">+</button>
+              </div>
+              <div class="gs-sub"><b id="cpuCount">3</b> CPU opponents</div>
+            </div>
+            <div class="gs-block">
+              <div class="gs-label">Difficulty</div>
+              <div class="seg gs-level" id="cpuLevel"><button data-v="easy">Easy</button><button data-v="normal" class="active">Normal</button><button data-v="hard">Hard</button><button data-v="mixed">Mixed</button></div>
+            </div>
           </div>
           <div class="mode-pane hidden" data-pane="pass">
-            <p class="hint">Everyone shares this device. Add human players (and optionally CPUs).</p>
-            <div id="passPlayers" class="player-list"></div>
-            <div class="row-btns"><button class="btn" id="passAddHuman">+ Human</button><button class="btn" id="passAddBot">+ CPU</button></div>
+            <div class="gs-label">Players at this device</div>
+            <div id="passPlayers" class="player-list gs-players"></div>
+            <div class="gs-add"><button id="passAddHuman"><i data-icon="user"></i> Add player</button><button id="passAddBot"><i data-icon="robot-01"></i> Add CPU</button></div>
           </div>
           <div class="mode-pane hidden" data-pane="online">
-            <div class="row"><label>Your name</label><div class="name-row"><button class="avatar-pick" id="onAvatar"></button><input id="onName" maxlength="16" placeholder="Your name"></div></div>
-            <div class="online-split">
-              <div class="online-box">
-                <h3>Create a room</h3>
-                <label class="check"><input type="checkbox" id="onPublic" checked> List publicly</label>
-                <button class="btn primary" id="onCreate">Create room</button>
-              </div>
-              <div class="online-box">
-                <h3>Join with code</h3>
-                <input id="onCode" maxlength="5" placeholder="ABCDE" class="code-input">
-                <button class="btn" id="onJoin">Join</button>
-              </div>
+            <div class="gs-me"><button class="avatar-pick" id="onAvatar" title="Change avatar"></button><input id="onName" maxlength="16" placeholder="Your name"><span class="gs-edit"><i data-icon="user"></i></span></div>
+            <div class="gs-create">
+              <button class="gs-create-btn" id="onCreate"><span class="gs-create-ic"><i data-icon="party"></i></span><span><b>Create a room</b><small>Invite friends with a code or link</small></span></button>
+              <div class="gs-public" role="group" aria-label="Room visibility"><input type="checkbox" id="onPublic" checked hidden>
+                <button data-pub="1" class="on"><i data-icon="globe"></i> Public</button><button data-pub="0"><i data-icon="view-off"></i> Private</button></div>
             </div>
-            <div class="online-box"><h3>Open rooms <button class="btn tiny ghost" id="onRefresh" title="Refresh"><i data-icon="refresh"></i></button></h3><div id="roomList" class="room-list"><p class="hint">Connecting…</p></div></div>
-            <p class="hint" id="netStatus"></p>
+            <div class="gs-or"><span>or join a friend</span></div>
+            <div class="gs-join"><input id="onCode" maxlength="5" placeholder="CODE" class="code-input" autocomplete="off" autocapitalize="characters" spellcheck="false"><button id="onJoin">Join</button></div>
+            <div class="gs-rooms">
+              <div class="gs-rooms-head"><span class="gs-label">Open rooms</span><span class="gs-net" id="netStatus"></span><button class="gs-refresh" id="onRefresh" title="Refresh"><i data-icon="refresh"></i></button></div>
+              <div id="roomList" class="room-list"><p class="gs-empty">Connecting…</p></div>
+            </div>
           </div>
-          <details class="house" id="houseRules" open><summary>Rules &amp; options</summary><div id="optForm" class="opt-form"></div></details>
+          <details class="house gs-rules" id="houseRules"><summary><span class="gs-rules-t"><i data-icon="settings-01"></i> Table rules</span><span class="gs-rules-sum" id="rulesSummary"></span></summary><div id="optForm" class="opt-form"></div></details>
         </div>
-        <div class="setup-foot"><button class="btn big primary" id="btnStart">Start game</button></div>
+        <div class="setup-foot gs-foot"><span class="gs-foot-sum" id="startSummary"></span><button class="btn big primary gs-play" id="btnStart"><i data-icon="play"></i> Play</button></div>
       </div>
     </section>
 
@@ -169,6 +191,14 @@
           <button class="btn icon ghost" id="lobbyLeave" title="Leave room"><i data-icon="arrow-left-01"></i></button>
           <div><h2>Room <span id="lobbyCode" class="code"></span></h2><p id="lobbyVariant"></p></div>
           <button class="btn" id="lobbyCopy"><i data-icon="link-01"></i> Copy invite link</button>
+        </div>
+        <div class="invite" id="lobbyInvite">
+          <div class="inv-top"><span class="inv-label">Invite friends</span><span class="inv-code" id="invCode"></span></div>
+          <button class="inv-link" id="invLink" title="Tap to copy"><i data-icon="link-01"></i><span id="invUrl"></span><b>Copy</b></button>
+          <div class="inv-btns">
+            <button class="inv-share" id="invShare"><i data-icon="bubble-chat"></i> Share</button>
+            <a class="inv-wa" id="invWa" target="_blank" rel="noopener"><i data-icon="smart-phone-01"></i> WhatsApp</a>
+          </div>
         </div>
         <div class="lobby-body">
           <div>

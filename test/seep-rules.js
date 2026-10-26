@@ -133,6 +133,32 @@ function game(opts) {
   check('30-point profile never starts with 10D or 9S on the floor', redeals === 0, redeals);
 }
 
+/* house limit and seep limit (both on by default) */
+{
+  const x = Object.assign(ctx([house(11, [1], false, ['5H', '6D']), house(12, [3], false, ['7C', '5D']), loose('4H')], ['6S', '10C']), { houseLimit: 2 });
+  check('two houses standing: no third house (6 onto 4 = 10)', !R.optionsAt(x, c0(x), [2]).some(a => a.type === 'build'));
+  const y = Object.assign(ctx([house(11, [1], false, ['5H', '6D']), house(12, [3], false, ['7C', '5D']), loose('5S')], ['6S', 'JC']), { houseLimit: 2 });
+  check('...but joining an existing house of the same value is fine (6 onto 5 = 11, merges)', R.optionsAt(y, c0(y), [2]).some(a => a.type === 'build' && a.merge >= 0));
+  const z = ctx([house(11, [1], false, ['5H', '6D']), house(12, [3], false, ['7C', '5D']), loose('4H')], ['6S', '10C']);
+  check('no limit: a third house is allowed', R.optionsAt(z, c0(z), [2]).some(a => a.type === 'build'));
+  const g = game();
+  g.phase = 'play'; g.current = 0; g.stock = [card('2H')];
+  g.players.forEach(p => { p.hand = [card('3C')]; });
+  g.sweeps[0] = 2; g.sweepPts[0] = 100;
+  g.players[0].hand = [card('9S'), card('5C')];
+  g.floor = [loose('4H'), loose('5D')];
+  g.act(0, g.legalFor(0).find(a => a.type === 'capture' && g.players[0].hand.find(c => c.id === a.cardId).r === '9'));
+  check('a third seep wipes the side\'s seep points', g.sweeps[0] === 0 && g.sweepPts[0] === 0, [g.sweeps[0], g.sweepPts[0]]);
+  const g2 = game({ seepLimit: '0' });
+  g2.phase = 'play'; g2.current = 0; g2.stock = [card('2H')];
+  g2.players.forEach(p => { p.hand = [card('3C')]; });
+  g2.sweeps[0] = 2; g2.sweepPts[0] = 100;
+  g2.players[0].hand = [card('9S'), card('5C')];
+  g2.floor = [loose('4H'), loose('5D')];
+  g2.act(0, g2.legalFor(0).find(a => a.type === 'capture' && g2.players[0].hand.find(c => c.id === a.cardId).r === '9'));
+  check('no seep limit: the third seep scores 50', g2.sweeps[0] === 3 && g2.sweepPts[0] === 150, [g2.sweeps[0], g2.sweepPts[0]]);
+}
+
 /* whole games, CPUs only, both scoring profiles and baazi */
 {
   for (const opts of [{}, { scoring: '30' }, { match: 'baazi' }, { scoring: '30', match: 'baazi' }]) {
