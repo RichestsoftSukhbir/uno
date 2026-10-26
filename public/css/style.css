@@ -1525,3 +1525,56 @@ body[data-desi-theme="pro"][data-playing="patti"] .sort-btn { background: linear
   .patti-btns .act-btn.labelled { width: 100%; }
   .act-btn.labelled .ab-txt { overflow: hidden; text-overflow: ellipsis; }
 }
+
+/* ================================================================== */
+/* phones: an uncluttered game screen                                  */
+/* ================================================================== */
+@media (max-width: 700px) {
+  /* header: menu, game name, chat (online) - the rest lives in the menu */
+  #btnLog, #btnRules, #btnSound, #btnSettingsGame { display: none !important; }
+  .hud-top { padding: calc(6px + env(safe-area-inset-top)) 8px 6px; gap: 8px; }
+  .hud-top .btn.glass { width: 40px; height: 40px; }
+  .hud-top .btn.glass .ic { width: 20px; height: 20px; }
+  .hud-title { gap: 6px; }
+  .hud-logo { height: 26px; }
+  .hud-desi { font-size: 13px; } .hud-desi b { font-size: 16px; }
+  .hud-name b { font-size: 19px !important; }
+  .hud-name span { font-size: 10px; padding: 1px 6px; }
+  /* the "you" panel duplicates the score strip */
+  .me-panel { display: none !important; }
+  /* status under the header, score strip under the status */
+  .hud-status { top: calc(54px + env(safe-area-inset-top)); font-size: 13px; padding: 6px 14px; max-width: 94vw; }
+  .live-board { top: calc(92px + env(safe-area-inset-top)); }
+  .lb-tile { position: relative; overflow: visible; }
+  .lb-av { position: relative; overflow: visible; }
+  .lb-av > svg, .lb-av > img { border-radius: 7px; }
+  .lb-av .turn-clock { inset: -5px; }
+  .lb-av .turn-clock circle { stroke-width: 10; }
+  .lb-av .tc-sec { bottom: -10px; font-size: 10px; min-width: 20px; padding: 0 4px; border-width: 1.5px; }
+  /* 5+ players: avatar and number only */
+  .live-board.crowded .lb-txt { display: none; }
+  .live-board.crowded .lb-tile { grid-template-columns: 24px auto; padding-right: 8px; }
+  .turn-banner { top: calc(130px + env(safe-area-inset-top)); }
+}
+@media (max-width: 700px) {
+  /* the desi / card-room buttons sit just above the hand, clear of the lower seats */
+  body[data-playing="patti"] .actions { bottom: calc(15vh + 8px); }
+}
+
+/* only your own turn gets a status line; everyone else's turn is a glow on their seat */
+.hud-status.idle { display: none; }
+@media (max-width: 700px) {
+  /* scores live on the seats; no strip across the top */
+  .live-board { display: none !important; }
+  /* you: a compact chip in the header's free right side */
+  .me-panel { display: flex !important; top: calc(8px + env(safe-area-inset-top)); bottom: auto; left: auto; right: 8px; padding: 3px 12px 3px 3px; gap: 8px; border-radius: 30px; max-width: 46vw; }
+  .me-panel .me-av { width: 34px; height: 34px; }
+  .me-panel b { font-size: 13px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .me-panel span { font-size: 11px; white-space: nowrap; }
+  .me-panel .tc-sec { font-size: 10px; min-width: 18px; padding: 0 4px; bottom: -8px; }
+  .hud-status { top: calc(56px + env(safe-area-inset-top)); }
+  /* whose turn: a stronger glow + bounce on their seat */
+  .seat.active { border-color: #ffd400; box-shadow: 0 0 0 3px #ffd400, 0 0 26px 6px rgba(255,212,0,.7); animation: seat-turn 1.2s ease-in-out infinite; }
+  @keyframes seat-turn { 50% { box-shadow: 0 0 0 3px #ffd400, 0 0 40px 12px rgba(255,212,0,.85); } }
+  .seat-think i { width: 10px; height: 10px; }
+}

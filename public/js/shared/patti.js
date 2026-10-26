@@ -405,7 +405,7 @@
       zones: zones,
       voids: voids, known: known,
       gone: this.outPile.map(function (c) { return { s: c.s, r: c.r }; }),   // discarded tricks were seen face up
-      status: this.statusFor(viewer, this.firstTrick && !this.trick.length ? 'Lead with the Ace of Spades' : (led ? 'Your turn - follow ' + SYM[led] + ' if you can' : 'Your lead - play any card'), 'is playing…')
+      status: this.statusFor(viewer, this.firstTrick && !this.trick.length ? 'Lead A♠' : (led ? 'Follow ' + SYM[led] : 'Your lead'), 'is playing…')
     });
   };
 
@@ -545,7 +545,7 @@
       lastPlay: this.last ? { p: this.last.p, n: this.last.cards.length, rank: this.last.rank } : null,
       select: mine ? { min: 1, max: max, action: 'play', needRank: !this.claim, ranks: RANKS, label: this.claim ? 'Play as ' + (RANK_WORD[this.claim] || this.claim) + 's' : 'Play & claim…' } : null,
       status: this.phase === 'reveal' ? (rv.honest ? 'TRUTH! ' + self.pname(rv.by) + ' takes the pile' : 'BLUFF caught! ' + self.pname(rv.target) + ' takes the pile')
-        : this.statusFor(viewer, this.claim ? 'Your turn - add ' + (RANK_WORD[this.claim] || this.claim) + 's, pass, or call Bluff' : 'Start a pile: pick 1-' + max + ' cards and claim a rank', 'is deciding…')
+        : this.statusFor(viewer, this.claim ? 'Add ' + (RANK_WORD[this.claim] || this.claim) + 's, pass or Bluff' : 'Start a pile', 'is deciding…')
     });
   };
 
@@ -620,7 +620,7 @@
     var self = this;
     return this.baseView(viewer, {
       zones: [{ id: 'grid', type: 'grid', cards: this.board.map(function (c) { return self.cv(c, true); }) }],
-      status: this.statusFor(viewer, this.legalFor(viewer).some(function (x) { return x.type === 'play'; }) ? 'Your turn - play a glowing card' : 'No card fits - you must pass', 'is playing…')
+      status: this.statusFor(viewer, this.legalFor(viewer).some(function (x) { return x.type === 'play'; }) ? 'Your turn' : 'No card fits - pass', 'is playing…')
     });
   };
 
@@ -709,7 +709,7 @@
         { id: 'hidden', type: 'pile', pos: 'left', faceUp: reveal, label: reveal ? 'Hidden card' : 'Hidden', cards: [this.cv(this.hidden, reveal)] }
       ],
       pickFrom: viewer === this.actor() ? t : null,
-      status: this.statusFor(viewer, 'Your turn - pick a card from ' + (t != null ? this.pname(t) : '') + '\'s hand', 'is picking a card…')
+      status: this.statusFor(viewer, 'Pick from ' + (t != null ? this.pname(t) : ''), 'is picking a card…')
     });
   };
 
@@ -910,7 +910,7 @@
       zones: [{ id: 'pot', type: 'pot', amount: this.pot, label: 'Pot ' + this.pot, sub: 'Stake ' + this.stake }],
       status: this.phase === 'showdown' ? 'SHOW! ' + this.show.winners.map(function (w) { return self.pname(w); }).join(' & ') + ' win' + (this.show.winners.length > 1 ? '' : 's')
         : this.phase === 'sideReply' ? (viewer === this.current ? this.pname(this.side.from) + ' wants a side show with you' : this.pname(this.current) + ' is deciding on a side show…')
-        : this.statusFor(viewer, this.players[viewer] && this.players[viewer].seen ? 'Your turn - chaal, raise, show or pack' : 'Your turn - play blind or see your cards', 'is betting…'),
+        : this.statusFor(viewer, this.players[viewer] && this.players[viewer].seen ? 'Your turn' : 'Your turn (blind)', 'is betting…'),
       chips: true
     });
     // you only see your own cards once you've "seen" them; everybody's are shown at a showdown
@@ -1067,8 +1067,8 @@
     });
     return this.baseView(viewer, {
       zones: zones, trump: this.trump, tricks: this.tricks, teams: true,
-      status: this.phase === 'trump' ? this.statusFor(viewer, 'Choose the trump suit (rang) from your 5 cards', 'is choosing trump…')
-        : this.statusFor(viewer, led ? 'Your turn - follow ' + SYM[led] + ' if you can' : 'Your lead', 'is playing…'),
+      status: this.phase === 'trump' ? this.statusFor(viewer, 'Choose trump', 'is choosing trump…')
+        : this.statusFor(viewer, led ? 'Follow ' + SYM[led] : 'Your lead', 'is playing…'),
       prompt: this.phase === 'trump' && viewer === this.current ? { title: 'Choose trump (rang)', options: this.legalFor(viewer).map(function (a) { return { label: a.label, action: a, suit: a.suit }; }) } : null
     });
   };
@@ -1579,9 +1579,13 @@
       title += baaziWon != null ? ' ' + who(baaziWon) + ' win the BAAZI!' : ' Lead: ' + (this.diff === 0 ? 'level' : who(this.diff > 0 ? 0 : 1) + ' by ' + Math.abs(this.diff)) + ' (first to ' + target + ').';
       if (baaziWon != null) { this.baazi[baaziWon]++; this.o.rounds = this.round; }
     }
-    this.players.forEach(function (pl) { pl.score = self.o.match === 'baazi' ? self.baazi[self.side(pl.id)] : self.totals[self.side(pl.id)]; });
+    // scores are the running point totals (baazi play also tracks the lead); the table shows this deal's points
+    this.players.forEach(function (pl) { pl.score = self.totals[self.side(pl.id)] - pts[self.side(pl.id)]; });
+    var delta = this.players.map(function (pl) { return pts[self.side(pl.id)]; });
     var winners = win == null ? [] : (this.teams ? [win, win + 2] : [win]);
-    this.finishRound(title, winners.length ? winners : [0], null, { points: pts, sweeps: this.sweeps.slice() });
+    var extra = { points: pts, sweeps: this.sweeps.slice(), baazi: this.o.match === 'baazi' ? { lead: this.diff, won: this.baazi.slice() } : null };
+    if (baaziWon != null) extra.champion = baaziWon;
+    this.finishRound(title, winners.length ? winners : [0], delta, extra);
   };
   SP.scoreboard = function () {
     var self = this;
@@ -1612,9 +1616,9 @@
     var mine = viewer === this.actor();
     return this.baseView(viewer, {
       zones: zones, deckCount: this.stock.length, teams: this.teams, bid: this.bid,
-      status: this.phase === 'bid' ? this.statusFor(viewer, 'Bid a house value (9-13) from your 4 cards', 'is bidding…')
-        : this.phase === 'bidplay' ? this.statusFor(viewer, 'Play for your bid of ' + this.bid + ': build it, capture it, or throw that card', 'is playing the bid…')
-          : this.statusFor(viewer, 'Your turn - pick a card, then tap where it goes (or choose from the list)', 'is thinking…'),
+      status: this.phase === 'bid' ? this.statusFor(viewer, 'Bid a house (9-13)', 'is bidding…')
+        : this.phase === 'bidplay' ? this.statusFor(viewer, 'Play your bid: ' + this.bid, 'is playing the bid…')
+          : this.statusFor(viewer, 'Your turn', 'is thinking…'),
       prompt: this.phase === 'bid' && mine ? { title: 'Bid a house value', text: 'You must hold a card of the value you bid.', options: this.legalFor(viewer).map(function (a) { return { label: a.label, action: a }; }) } : null,
       perCard: true, placeable: true
     });

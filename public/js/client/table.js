@@ -28,7 +28,7 @@
   var PRESETS = {
     // rx/ry: ellipse of the opponents' held hands, fs: their card scale, avY/avZ: name plate offset in front of the hand
     wide: { tilt: 48, persp: 1700, feltW: 1560, feltH: 980, rx: 610, ry: 330, handY: 585, handZ: 70, handW: 1150, pile: 100, pileY: 10, hs: 1, fs: 0.78, fanZ: 72, avY: 92, avZ: 18, seatSc: 1 },
-    tall: { tilt: 26, persp: 1300, feltW: 800, feltH: 1560, rx: 250, ry: 520, handY: 900, handZ: 150, handW: 620, pile: 72, pileY: 60, hs: 1.55, fs: 0.95, fanZ: 80, avY: 80, avZ: 18, seatSc: 1.3, arc: [200, 340] }
+    tall: { tilt: 26, persp: 1300, feltW: 800, feltH: 1560, rx: 250, ry: 520, handY: 900, handZ: 150, handW: 620, pile: 72, pileY: 60, hs: 1.55, fs: 0.95, fanZ: 80, avY: 104, avZ: 18, seatSc: 1.3, arc: [200, 340] }
   };
 
   function Table(root, opts) {
@@ -93,11 +93,15 @@
     }
     // every opponent's held fan and name plate must stay on screen and below the top bar
     var n = this.nSeats || 4;
+    // crowded tables: shrink the opponents' fans and name plates so they don't pile up
+    var crowd = L.arc ? (n >= 7 ? 0.56 : n >= 6 ? 0.62 : n >= 5 ? 0.72 : 1) : (n >= 8 ? 0.8 : n >= 7 ? 0.86 : 1);
+    L.fs *= crowd; L.seatSc *= L.arc ? Math.max(0.78, crowd + 0.12) : crowd;
     var seatAngles = [];
     for (var r = 1; r < n; r++) seatAngles.push(this.angleFor(r, n));
     var fanHalfW = (CW * 0.6 + Math.min(110, 9 * 14)) * L.fs, fanUp = CH * 0.95 * L.fs, plateW = 100 * L.seatSc, plateH = 50 * L.seatSc;
     function seatsFit(sc, oy) {
-      var topMargin = h < 560 ? 52 : 84;
+      // phones have a slim header (menu + title): seats can come right up under it
+      var topMargin = h < 560 ? 52 : (w <= 700 ? 64 : 84);
       for (var i = 0; i < seatAngles.length; i++) {
         var a = rad(seatAngles[i]);
         var x = L.rx * Math.cos(a), y = L.ry * Math.sin(a);
@@ -123,14 +127,15 @@
       if (!seatsFit(s, oy)) continue;
       var nearL = proj(s, oy, -L.feltW * 0.46, L.feltH * 0.32, 0);
       var handL = proj(s, oy, -(L.handW / 2 + CW / 2) * Math.min(L.hs, 1.15), L.handY, L.handZ);
-      if (-nearL.x > w * 0.5 + 30 || -handL.x > w * 0.5 - 8) continue;
+      // portrait: the hand is squeezed to the screen anyway (handMaxW below), so it doesn't limit the size
+      if (L.arc ? -nearL.x > w * 0.5 + 140 : (-nearL.x > w * 0.5 + 30 || -handL.x > w * 0.5 - 8)) continue;
       best = { s: s, oy: oy };
       break;
     }
     if (!best) best = { s: 0.3, oy: 0 };
     // keep the hand clear of the HUD in the bottom corners
     var kh = proj(best.s, best.oy, 0, L.handY, L.handZ).k;
-    var margin = w / h < 0.9 ? 20 : (w < 720 ? 70 : 215);
+    var margin = w / h < 0.9 ? 36 : (w < 720 ? 70 : 215);
     this.handMaxW = Math.max(220, Math.min(L.handW, (w - 2 * margin) / (best.s * kh * L.hs) * L.hs - CW * L.hs));
     this.scale = best.s;
     this.oy = best.oy;
@@ -178,8 +183,24 @@
     if (m === 2) { a0 = 205; a1 = 335; }
     if (m === 3) { a0 = 180; a1 = 360; }
     // portrait: keep everybody along the top arc so there's room for big hands
-    if (this.L && this.L.arc) { a0 = this.L.arc[0]; a1 = this.L.arc[1]; if (m === 2) { a0 = 215; a1 = 325; } }
+    if (this.L && this.L.arc) {
+      a0 = this.L.arc[0]; a1 = this.L.arc[1]; if (m === 2) { a0 = 215; a1 = 325; }
+      // 4+ opponents: a U down both sides and across the top, spaced evenly along the table edge
+      if (m >= 4) return this.arcAngle(m >= 6 ? 168 : 178, m >= 6 ? 372 : 362, (rel - 1) / (m - 1));
+    }
     return a0 + (a1 - a0) * ((rel - 1) / (m - 1));
+  };
+  // the angle at fraction f of the way along the seat ellipse between a0 and a1 (by distance, not by angle)
+  T.arcAngle = function (a0, a1, f) {
+    var L = this.L, steps = 120, len = [0], prev = null;
+    for (var i = 0; i <= steps; i++) {
+      var a = rad(a0 + (a1 - a0) * i / steps), pt = { x: L.rx * Math.cos(a), y: L.ry * Math.sin(a) };
+      if (prev) len.push(len[len.length - 1] + Math.hypot(pt.x - prev.x, pt.y - prev.y));
+      prev = pt;
+    }
+    var want = f * len[steps];
+    for (var j = 1; j <= steps; j++) if (len[j] >= want) { var t = (want - len[j - 1]) / Math.max(1e-6, len[j] - len[j - 1]); return a0 + (a1 - a0) * (j - 1 + t) / steps; }
+    return a1;
   };
   T.seatPos = function (pid, out) {
     var L = this.L;

@@ -269,7 +269,7 @@
       ],
       chips: true,
       status: this.phase === 'showdown' ? 'Showdown!' : this.phase === 'runout' ? 'All in - dealing the board' :
-        this.statusFor(viewer, this.currentBet - (this.bet[viewer] || 0) > 0 ? 'Your turn - ' + (this.currentBet - this.bet[viewer]) + ' to call' : 'Your turn - check or bet', 'is thinking…')
+        this.statusFor(viewer, this.currentBet - (this.bet[viewer] || 0) > 0 ? (this.currentBet - this.bet[viewer]) + ' to call' : 'Your turn', 'is thinking…')
     });
     v.players.forEach(function (pv, i) {
       var vis = i === viewer || (reveal && showIds.indexOf(i) >= 0);
@@ -451,7 +451,7 @@
       zones: [{ id: 'dealer', type: 'floor', label: this.dealerCards.length ? 'Dealer ' + (this.holeShown ? shown : shown + ' + ?') : 'Dealer', items: dcards }],
       deckCount: this.shoe.length, chips: true,
       status: this.phase === 'bet' ? this.statusFor(viewer, 'Place your bet', 'is betting…') : this.phase === 'dealer' ? 'Dealer\'s turn' :
-        this.statusFor(viewer, 'Your hand: ' + (this.players[viewer] ? bjValue(this.players[viewer].hand).total : '') + ' - hit, stand or double', 'is playing…')
+        this.statusFor(viewer, 'Your turn', 'is playing…')
     });
     // everybody's cards are face up in blackjack
     v.players.forEach(function (pv, i) { pv.hand = self.players[i].hand.map(function (c) { return self.cv(c, true); }); });
@@ -716,7 +716,7 @@
         { id: 'joker', type: 'pile', pos: 'left', faceUp: true, label: 'Joker: every ' + this.wild, cards: [this.cv(this.cut, true)] }
       ],
       deckCount: this.closed.length, keepOrder: true, wild: this.wild,
-      status: this.phase === 'draw' ? this.statusFor(viewer, 'Draw from the closed deck or take the open card', 'is drawing…') : this.statusFor(viewer, 'Tap a card to discard it' + (this.declareCard(viewer) ? ' - or DECLARE!' : ''), 'is discarding…')
+      status: this.phase === 'draw' ? this.statusFor(viewer, 'Draw a card', 'is drawing…') : this.statusFor(viewer, this.declareCard(viewer) ? 'Discard or Declare!' : 'Discard a card', 'is discarding…')
     });
     if (this.players[viewer]) {
       var a = rummyArrange(this.players[viewer].hand, this.wild);
@@ -874,9 +874,9 @@
     var mine = viewer === this.actor();
     return this.baseView(viewer, {
       zones: zones, trump: this.trump, teams: true,
-      status: this.phase === 'bid' ? this.statusFor(viewer, this.bid ? 'Bid more than ' + this.bid + ' or pass' : 'Open the bidding (16 or more)', 'is bidding…')
-        : this.phase === 'trump' ? this.statusFor(viewer, 'Choose trump from your four cards', 'is choosing trump…')
-          : this.statusFor(viewer, led ? 'Your turn - follow ' + SYM[led] + ' if you can' : 'Your lead', 'is playing…'),
+      status: this.phase === 'bid' ? this.statusFor(viewer, this.bid ? 'Bid over ' + this.bid : 'Your bid', 'is bidding…')
+        : this.phase === 'trump' ? this.statusFor(viewer, 'Choose trump', 'is choosing trump…')
+          : this.statusFor(viewer, led ? 'Follow ' + SYM[led] : 'Your lead', 'is playing…'),
       prompt: mine && (this.phase === 'bid' || this.phase === 'trump') ? { title: this.phase === 'bid' ? 'Your bid' : 'Choose trump', text: this.phase === 'bid' ? 'Points in play: J=3, 9=2, A=1, 10=1' + (this.o.lastTrick !== false ? ', last trick 1 (29 in all)' : ' (28 in all)') + '.' : '', options: this.legalFor(viewer).map(function (a) { return { label: a.label, action: a, suit: a.suit }; }) } : null
     });
   };

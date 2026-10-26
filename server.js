@@ -320,7 +320,8 @@ wss.on('connection', ws => {
         const seat = r.seats.find(s => s.token === ss.token);
         if (seat) { seat.connected = true; seat.name = seat.name; }
         broadcastRoom(r);
-        if (r.game) { sendGame(r, ss.token, []); if (r.controller) r.controller.schedule([]); }
+        // send the game as it stands; only restart the timers if nothing is pending (don't reset a running turn)
+        if (r.game) { sendGame(r, ss.token, []); if (r.controller && !r.controller.timers.length && !r.controller.turnTimer) r.controller.schedule([]); }
       } else ss.room = null;
       return;
     }

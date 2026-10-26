@@ -1043,9 +1043,11 @@
     // status
     var st = $('#hudStatus');
     var txt = v.status || '';
-    if (v.myHandName) txt += ' · Your hand: ' + v.myHandName;
+    if (v.myHandName && v.variant !== 'rummy') txt += ' · ' + v.myHandName;
     if (st.textContent !== txt) { st.textContent = txt; gsap.fromTo(st, { xPercent: -50, x: 0, y: -6, opacity: 0.4 }, { xPercent: -50, x: 0, y: 0, opacity: 1, duration: 0.25 }); } // stay centred whatever the text length
     st.classList.toggle('mine', myTurn);
+    // other players' turns show as a glow on their seat, not as text
+    st.classList.toggle('idle', !myTurn && v.phase !== 'roundOver' && v.actor != null);
     // prompt: trump / bid choices, or the moves a Seep card can make
     var p = $('#prompt');
     var html = '';
@@ -1137,11 +1139,12 @@
       var turn = r.p != null ? r.p === v.actor : (v.actor != null && r.side != null && v.actor % 2 === r.side);
       var cls = 'lb-tile' + (mine ? ' mine' : '') + (turn ? ' turn' : '') + (r.good ? ' good' : '') + (r.bad ? ' bad' : '');
       var sub = [r.sub, r.total].filter(Boolean).join(' · ');
-      return '<div class="' + cls + '"><span class="lb-av">' + av(pl.avatar || (pl.kind === 'bot' ? 'robot-01' : 'user')) + '</span>' +
+      return '<div class="' + cls + '"' + (r.p != null ? ' data-p="' + r.p + '"' : '') + '><span class="lb-av">' + av(pl.avatar || (pl.kind === 'bot' ? 'robot-01' : 'user')) + '</span>' +
         '<span class="lb-txt"><span class="lb-name">' + esc(r.label) + '</span>' + (sub ? '<small>' + esc(sub) + '</small>' : '') + '</span>' +
         '<b class="lb-val">' + esc(r.value) + '</b></div>';
     }).join('');
     var html = tiles + (sb.foot ? '<div class="lb-foot">' + esc(sb.foot) + '</div>' : '');
+    el.classList.toggle('crowded', sb.rows.length >= 5);
     if (el.dataset.html === html) return;
     el.dataset.html = html;
     el.innerHTML = html;
@@ -1262,12 +1265,12 @@
     else if (myTurn) {
       switch (v.phase) {
         case 'turn':
-          if (v.engine === 'dos') txt = app.selected.length ? 'Now tap a Center Row card to match' : 'Select 1-2 cards, then tap a Center Row card';
-          else if (v.drawStack) txt = '+' + v.drawStack + ' incoming - stack a draw card or take them!';
-          else txt = 'Your turn' + (v.color ? ' - match ' + v.color.toUpperCase() : '');
+          if (v.engine === 'dos') txt = app.selected.length ? 'Tap a Center Row card' : 'Your turn';
+          else if (v.drawStack) txt = '+' + v.drawStack + ' - stack or take';
+          else txt = 'Your turn';
           break;
-        case 'drawn': txt = v.engine === 'dos' ? 'Match with the drawn card, or tap a card to add it to the Center Row' : 'You drew a playable card - play it or keep it'; break;
-        case 'bonus': txt = 'Color Match bonus! Tap a card to add it to the Center Row'; break;
+        case 'drawn': txt = 'Play it or keep it'; break;
+        case 'bonus': txt = 'Bonus: add a card'; break;
         case 'color': txt = 'Choose a colour'; break;
         default: txt = 'Your decision';
       }
@@ -1291,6 +1294,7 @@
       gsap.fromTo(st, { y: -6, opacity: 0.4 }, { y: 0, opacity: 1, duration: 0.25 });
     }
     st.classList.toggle('mine', !!myTurn);
+    st.classList.toggle('idle', !myTurn && v.phase !== 'roundOver' && v.actor != null && !v.pend);
   }
 
   function colorButtons(colors, type) {
@@ -1360,6 +1364,9 @@
     return s && s.type === 'local' ? s.controller.deadline : app.deadline;
   }
   function clockHost(pid) {
+    // phones: the clock rings the player's avatar in the score strip (the big seat plates are hidden there)
+    var tile = $('#liveBoard [data-p="' + pid + '"] .lb-av');
+    if (tile && tile.offsetParent && window.innerWidth <= 700) return tile;
     if (pid === app.view.me) return $('#meAv');
     var seat = app.table && app.table.seats && app.table.seats[pid];
     return seat ? seat.querySelector('.seat-av') : null;
@@ -1523,7 +1530,7 @@
     } else btns = '<button class="btn big primary" data-x="next">Next round ' + ic('arrow-right-01') + '</button><button class="btn ghost" data-x="close">View table</button>';
     var card = modal('<h2 class="re-title">' + esc(title) + '</h2>' + (rr.gameOver ? '<p class="hint">' + esc(rr.title) + '</p>' : '') +
       '<table class="score-table"><thead><tr><th>Player</th><th></th><th>Round</th><th>' + (v.chips ? 'Chips' : 'Total') + '</th></tr></thead><tbody>' + rows + '</tbody></table>' +
-      (!rr.gameOver && v.rounds > 1 ? '<p class="hint">Round ' + v.round + ' of ' + v.rounds + '</p>' : '') +
+      (rr.baazi ? '<p class="hint">Baazis won: ' + rr.baazi.won.join(' - ') + '</p>' : !rr.gameOver && v.rounds > 1 ? '<p class="hint">Round ' + v.round + ' of ' + v.rounds + '</p>' : '') +
       '<div class="pr-btns">' + btns + '</div>', { id: 'roundEnd', dismiss: !rr.gameOver });
     $$('[data-x]', card).forEach(function (b) {
       b.onclick = function () {
@@ -1618,6 +1625,8 @@
     var card = modal('<h2>Paused</h2><div class="menu-list">' +
       '<button class="btn big primary" data-m="resume">' + ic('play') + ' Resume</button>' +
       '<button class="btn big" data-m="rules">' + ic('book-open-01') + ' Rules</button>' +
+      '<button class="btn big" data-m="log">' + ic('scroll-text') + ' Game log</button>' +
+      '<button class="btn big" data-m="sound">' + ic(settings.sound ? 'volume-high' : 'volume-off') + ' Sound: ' + (settings.sound ? 'on' : 'off') + '</button>' +
       '<button class="btn big" data-m="settings">' + ic('settings-01') + ' Settings</button>' +
       (local ? '<button class="btn big" data-m="restart">' + ic('refresh') + ' Restart game</button>' : '') +
       '<button class="btn big danger" data-m="quit">' + ic('logout-03') + ' Quit to menu</button></div>', { id: 'menu' });
@@ -1629,6 +1638,8 @@
         if (m === 'resume') { closeModal(); resume(); }
         else if (m === 'rules') { resume(); openRules(app.view && app.view.variant); }
         else if (m === 'settings') { resume(); openSettings(); }
+        else if (m === 'log') { closeModal(); resume(); $('#logPanel').classList.add('open'); $('#chatPanel').classList.remove('open'); }
+        else if (m === 'sound') { settings.sound = !settings.sound; saveSettings(); closeModal(); resume(); toast('Sound ' + (settings.sound ? 'on' : 'off'), 'info'); }
         else if (m === 'restart') { var c = app.session.config; startLocal(c.variant, c.opts, c.seats); }
         else if (m === 'quit') quitToMenu();
       };
