@@ -70,7 +70,7 @@
       tagline: 'Build houses, capture by value and sweep the floor clean for 50 points.',
       defaults: { rounds: 1, scoring: '100', houseLimit: '2', seepLimit: '2', houseThrow: 'allow', match: 'rounds', turnTimer: 45 }, options: ['rounds', 'scoring', 'houseLimit', 'seepLimit', 'houseThrow', 'match', 'turnTimer'],
       // turn pacing (ms): CPUs think a little longer, and every move gets a beat to settle on the table
-      pace: { botDelay: 1100, settle: 450 } },
+      pace: { botDelay: 1100, settle: 450, floorLook: 1800 } },
     sevens: { id: 'sevens', universe: 'desi', name: 'Satte Pe Satta', short: 'Satte Pe Satta', players: [3, 8], accent: '#e76f51', sig: { s: 'H', r: '7' },
       tagline: 'Sevens open the rows - build each suit up and down. First to empty the hand wins.',
       defaults: { rounds: 1, opening: '7H', turnTimer: 30 }, options: ['rounds', 'opening', 'turnTimer'] },
@@ -1441,8 +1441,20 @@
     return out;
   };
   SP.isLastMove = function () { return !this.stock.length && this.players.every(function (pl) { return !pl.hand.length; }); };
+  // tell the table exactly what was played onto what, before the cards move (so everyone can follow it)
+  SP.showPlay = function (p, c, kind, idxs, value) {
+    var self = this, onto = [], parts = [];
+    (idxs || []).forEach(function (i) {
+      var it = self.floor[i];
+      if (!it) return;
+      if (it.kind === 'card') { onto.push(it.c.id); parts.push({ s: it.c.s, r: it.c.r }); }
+      else { it.cards.forEach(function (x) { onto.push(x.id); }); parts.push({ house: it.value, pakka: it.pakka }); }
+    });
+    this.emit({ t: 'showPlay', p: p, kind: kind, card: { id: c.id, s: c.s, r: c.r }, onto: onto, parts: parts, value: value || null });
+  };
   SP.on_capture = function (p, a) {
     var first = this.phase === 'bidplay';
+    this.showPlay(p, this.find(p, a.cardId), 'capture', a.items, a.value);
     var c = this.take(p, a.cardId);
     var got = this.cardsOf(this.removeItems(a.items)).concat([c]);
     var s = this.side(p);
@@ -1488,6 +1500,7 @@
     return house;
   };
   SP.on_build = function (p, a) {
+    this.showPlay(p, this.find(p, a.cardId), a.pakka ? 'pakka' : 'build', a.items, a.value);
     var c = this.take(p, a.cardId);
     var parts = this.cardsOf(this.removeItems(a.items));
     var h = this.placeHouse({ kind: 'house', value: a.value, pakka: !!a.pakka, owners: [p], cards: parts.concat([c]) });
@@ -1496,6 +1509,7 @@
     this.afterMove(p);
   };
   SP.on_raise = function (p, a) {
+    this.showPlay(p, this.find(p, a.cardId), 'raise', [a.house], a.value);
     var c = this.take(p, a.cardId);
     var h = this.floor[a.house];
     h.cards.push(c);
@@ -1507,6 +1521,7 @@
     this.afterMove(p);
   };
   SP.on_cement = function (p, a) {
+    this.showPlay(p, this.find(p, a.cardId), 'cement', a.items, a.value);
     var c = this.take(p, a.cardId);
     var h = this.floor[a.house];
     var extra = a.items.filter(function (i) { return i !== a.house; });
@@ -1520,6 +1535,7 @@
     this.afterMove(p);
   };
   SP.on_throw = function (p, a) {
+    this.showPlay(p, this.find(p, a.cardId), 'throw', [], null);
     var c = this.take(p, a.cardId);
     this.floor.push({ kind: 'card', c: c });
     this.emit({ t: 'throw', p: p, id: c.id });
@@ -1615,7 +1631,7 @@
     }
     var mine = viewer === this.actor();
     return this.baseView(viewer, {
-      zones: zones, deckCount: this.stock.length, teams: this.teams, bid: this.bid,
+      zones: zones, deckCount: this.stock.length, teams: this.teams, bid: this.bid, seeps: this.sweeps.slice(), lastDeal: !this.stock.length,
       status: this.phase === 'bid' ? this.statusFor(viewer, 'Bid a house (9-13)', 'is bidding…')
         : this.phase === 'bidplay' ? this.statusFor(viewer, 'Play your bid: ' + this.bid, 'is playing the bid…')
           : this.statusFor(viewer, 'Your turn', 'is thinking…'),
@@ -1677,7 +1693,9 @@
       case 'bhabhi': {
         var plays = byType.play;
         var led = trick && trick.cards.length ? trick.cards[0].cv.a.s : null;
-        var voids = v.voids || [], known = v.known || [], gone = v.gone || [];
+        // levels really play differently: easy remembers nothing, normal remembers who is out of a suit,
+        // hard also counts cards (who picked up what, what has gone) and springs traps
+        var voids = lvl === 'easy' ? [] : v.voids || [], known = lvl === 'hard' ? v.known || [] : [], gone = lvl === 'hard' ? v.gone || [] : [];
         var isVoid = function (pid, suit) { return (voids[pid] || []).indexOf(suit) >= 0; };
         var n = v.players.length;
         var played = {};
@@ -1726,7 +1744,7 @@
             }
             // somebody lacks this suit. It's a TRAP if, before each such player, someone else has to follow
             // with a higher card: my card is the lowest one left, or a player in between is known to hold a bigger one
-            var trap = TUNE.trap !== 'off' && voidOpp.every(function (q) {
+            var trap = lvl === 'hard' && TUNE.trap !== 'off' && voidOpp.every(function (q) {
               var mid = between(q).filter(function (x) { return !isVoid(x, f.s); });
               if (!mid.length) return false;
               // spring it only when nobody can duck under my card (it's the lowest left in the suit)
@@ -1739,14 +1757,16 @@
             return -60 + cover * 30 - r * (lowerOut(f.s, r) ? 1 : 0.3) + rnd() * noise;
           }
           if (f.s !== led) {
-            // thulla: get rid of a big card, preferably the last of a suit (so I can thulla that suit next time)
-            return r + (inSuit(f.s) === 1 ? 5 : 0) + rnd() * noise;
+            if (lvl === 'easy') return rnd() * 10;                       // any old card
+            // thulla: get rid of a big card; hard also prefers the last of a suit (to thulla it next time)
+            return r + (lvl === 'hard' && inSuit(f.s) === 1 ? 5 : 0) + rnd() * noise;
           }
           var top = 0;
           trick.cards.forEach(function (t) { if (t.cv.a.s === led) top = Math.max(top, hi(t.cv.a.r)); });
           var thullaComing = after.some(function (q) { return isVoid(q, led); });
+          if (lvl === 'easy') return -r + rnd() * noise;                   // just follow low
           if (!after.length) return r + rnd() * noise;                 // last to follow: the trick goes out, so shed my biggest
-          if (thullaComing) return (r < top ? 20 + r : -3 * r) + rnd() * noise; // someone will cut: stay under, or as low as possible
+          if (thullaComing && lvl === 'hard') return (r < top ? 20 + r : -3 * r) + rnd() * noise; // someone will cut: stay under, or as low as possible
           return (r < top ? 20 + r : -r) + rnd() * noise;              // duck under the current winner
         });
       }
@@ -1836,23 +1856,57 @@
       }
       case 'seep': {
         if (byType.bid) return pickBy(byType.bid, function (a) { return a.value + rnd(); });
-        var fz = (v.zones || []).filter(function (z) { return z.type === 'floor'; })[0];
-        var fitems = fz ? fz.items : [];
-        var ptsOf = v.options && v.options.scoring === '30' ? function (c) { return c ? ((c.s === 'D' && c.r === '10') ? 12 : (c.s === 'S' && c.r === '9') ? 9 : (c.s === 'S' && c.r === '2') ? 1 : c.r === 'A' ? 1 : 0) : 0; } : function (c) { return c ? seepPts(c) : 0; };
-        var itemPts = function (i) { var it = fitems[i]; if (!it) return 0; return it.kind === 'card' ? ptsOf(it.cv.a) : it.cards.reduce(function (t, x) { return t + ptsOf(x.a); }, 0); };
-        var itemCount = function (i) { var it = fitems[i]; return !it ? 0 : it.kind === 'card' ? 1 : it.cards.length; };
+        var R = SeepRules, ctx = R.fromView(v);
+        var floor = ctx.floor;
+        var thirty = v.options && v.options.scoring === '30';
+        var ptsOf = thirty ? function (c) { return c ? ((c.s === 'D' && c.r === '10') ? 12 : (c.s === 'S' && c.r === '9') ? 9 : (c.s === 'S' && c.r === '2') ? 1 : c.r === 'A' ? 1 : 0) : 0; } : function (c) { return c ? seepPts(c) : 0; };
+        var cardsOf = function (it) { return it.kind === 'card' ? [it.c] : it.cards.map(function (x) { return x.a || x; }); };
+        var itemPts = function (it) { return cardsOf(it).reduce(function (t, c) { return t + ptsOf(c); }, 0); };
+        var mySide = v.teams ? v.me % 2 : v.me, oppSide = v.teams ? 1 - mySide : (v.me === 0 ? 1 : 0);
+        var limit = +(v.options && v.options.seepLimit) || 0;
+        var seeps = v.seeps || [0, 0];
+        var myCapped = limit && seeps[mySide] >= limit, oppCapped = limit && seeps[oppSide] >= limit;
+        var smart = lvl !== 'easy';
+        // the floor this move leaves behind
+        var after = function (a, card) {
+          var fl = floor.filter(function (it, i) { return a.items.indexOf(i) < 0; });
+          var c = { kind: 'card', c: card };
+          if (a.type === 'throw') fl.push(c);
+          else if (a.type === 'build') fl.push({ kind: 'house', value: a.value, pakka: !!a.pakka, owners: [v.me], cards: [] });
+          else if (a.type === 'cement' || a.type === 'raise') { var h = floor[a.house]; fl.push({ kind: 'house', value: a.value, pakka: a.type === 'cement' || (a.merge >= 0), owners: [v.me], cards: h ? h.cards : [] }); }
+          return fl;
+        };
+        // could one card of any value (that we can't see being held by us) clear this whole floor?
+        var sweepable = function (fl) {
+          if (!fl.length) return false;
+          var probe = { floor: fl, hand: [], p: v.me };
+          for (var val = 1; val <= 13; val++) if (R.capture(probe, val).length === fl.length) return true;
+          return false;
+        };
+        var nextIsOpp = true;                     // the next player is always on the other side in Seep (2 or 4 players)
         return pickBy(legal, function (a) {
           var f = face(v, a.cardId) || { r: '2', s: 'H' };
-          var cardPts = ptsOf(f);
+          var card = ctx.hand.filter(function (x) { return x.id === a.cardId; })[0] || { id: a.cardId, s: f.s, r: f.r };
+          var cardPts = ptsOf(f), sc;
           if (a.type === 'capture') {
             var gain = cardPts, cnt = 1;
-            a.items.forEach(function (i) { gain += itemPts(i); cnt += itemCount(i); });
-            return 40 + gain * 2 + (a.sweep ? 120 : 0) + cnt * 3 + rnd() * noise;
+            a.items.forEach(function (i) { gain += itemPts(floor[i]); cnt += cardsOf(floor[i]).length; });
+            sc = 40 + gain * 2 + cnt * 3;
+            if (a.sweep) {
+              // a sweep is great - unless it's our side's seep over the limit, which wipes our seep points
+              if (myCapped && smart) sc -= 400 + seeps[mySide] * 60;
+              else if (!v.lastDeal || !thirty) sc += 120;
+            }
+          } else if (a.type === 'build') sc = 30 + a.value + (a.pakka ? 8 : 0);
+          else if (a.type === 'raise') sc = 34 + a.value;
+          else if (a.type === 'cement') sc = 28;
+          else sc = 10 - cardPts * 2 - low(f.r) * 0.3;
+          if (smart && !(a.type === 'capture' && a.sweep)) {
+            var fl = after(a, card);
+            if (nextIsOpp && sweepable(fl)) sc += oppCapped ? 25 : -(lvl === 'hard' ? 70 : 45);   // don't hand them a seep (unless it would wipe theirs)
+            if (!fl.length && myCapped) sc += 5;
           }
-          if (a.type === 'build') return 30 + a.value + (a.pakka ? 8 : 0) + rnd() * noise;
-          if (a.type === 'raise') return 34 + a.value + rnd() * noise;           // breaking someone else's house
-          if (a.type === 'cement') return 28 + rnd() * noise;
-          return 10 - cardPts * 2 - low(f.r) * 0.3 + rnd() * noise;            // throw something harmless
+          return sc + rnd() * noise;
         });
       }
     }

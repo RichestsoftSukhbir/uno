@@ -1,7 +1,7 @@
 /* Offline cache: the whole app (vs CPU and pass & play) works without a network. */
-const CACHE = 'uno-arena-v27';
+const CACHE = 'uno-arena-v31';
 const ASSETS = ['./', 'index.html', 'css/style.css', 'vendor/gsap.min.js', 'js/shared/engine.js', 'js/shared/patti.js', 'js/shared/pro.js', 'js/shared/bots.js', 'js/shared/controller.js',
-  'js/client/icons.js', 'js/client/pattiCards.js', 'js/client/cards.js', 'js/client/sound.js', 'js/client/rules.js', 'js/client/demo.js', 'js/client/demos.js', 'js/client/table.js', 'js/client/net.js', 'js/client/app.js', 'icon.svg', 'img/uno-logo.svg', 'manifest.webmanifest'];
+  'js/client/icons.js', 'js/client/pattiCards.js', 'js/client/cards.js', 'js/client/sound.js', 'js/client/rules.js', 'js/client/demo.js', 'js/client/demos.js', 'js/client/table.js', 'js/client/net.js', 'js/client/app.js', 'icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/maskable-512.png', 'icons/apple-touch-icon.png', 'img/uno-logo.svg', 'manifest.webmanifest'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
 self.addEventListener('fetch', e => {

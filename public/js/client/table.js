@@ -16,6 +16,7 @@
     for (var i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
     return (h >>> 0) / 4294967295;
   }
+  function esc(t) { return String(t == null ? '' : t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function el(tag, cls, parent, html) {
     var e = document.createElement(tag);
     if (cls) e.className = cls;
@@ -933,6 +934,7 @@
 
     // deal: gather everything back to the deck first, then shuffle
     var t0 = 0;
+    if (types.deal && !types.deal.more && this.capEl) { this.capEl.remove(); this.capEl = null; }
     if (types.deal && !types.deal.more) {
       var old = Object.keys(this.cards);
       old.forEach(function (id) {
@@ -958,6 +960,8 @@
       });
       t0 += 0.2;
     }
+    // Seep: show the move before anything else moves - the card lands face up on what it's played onto
+    if (types.showPlay) t0 = this.showPlay(types.showPlay, view, targets, tl, t0);
     var seqDraw = 0;
     var moved = 0;
     var flipIdx = 0;
@@ -1102,6 +1106,59 @@
       .to(b, { scale: 1, rotation: 0, duration: 0.35, ease: 'elastic.out(1, 0.5)' })
       .to(b, { opacity: 0, y: -20, duration: 0.4 }, '+=1.4');
   };
+  T.showPlay = function (mv, view, targets, tl, t0) {
+    var self = this, rec = this.cards[mv.card.id];
+    var A = this.activeIsA(), upRY = A ? 0 : 180;
+    var mine = mv.p === view.me;
+    var hold = mine ? 0.45 : 1.05;                     // others' moves stay on screen a little longer
+    tl.call(function () { self.moveCaption(mv, view); }, null, t0);
+    if (!rec) return t0 + hold;
+    // where it lands: on top of the first card it's played onto, or where it will lie on the floor
+    var anchor = null;
+    var first = mv.onto.length ? this.cards[mv.onto[mv.onto.length - 1]] : null;
+    if (first) anchor = { x: gsap.getProperty(first.el, 'x'), y: gsap.getProperty(first.el, 'y'), z: gsap.getProperty(first.el, 'z') };
+    else if (targets[mv.card.id]) anchor = { x: targets[mv.card.id].x, y: targets[mv.card.id].y, z: 2 };
+    if (!anchor) return t0 + hold;
+    this.setFaces(rec, { id: mv.card.id, a: { s: mv.card.s, r: mv.card.r }, b: 'back' });
+    var ontoEls = mv.onto.map(function (id) { return self.cards[id]; }).filter(Boolean);
+    tl.call(function () { S.play('slide'); ontoEls.forEach(function (r) { r.el.classList.add('play-target'); }); }, null, t0);
+    tl.to(rec.el, { x: anchor.x + 16, y: anchor.y - 22, z: (anchor.z || 2) + 40, rotationX: 0, rotation: 0, duration: 0.5, ease: 'power2.out' }, t0);
+    tl.to(rec.inner, { rotationY: upRY, rotation: -8, x: 0, y: 0, z: 0, scale: 1.08, duration: 0.5, ease: 'power2.out' }, t0);
+    tl.call(function () { S.play('place'); rec.el.classList.add('play-card'); }, null, t0 + 0.5);
+    var end = t0 + 0.5 + hold;
+    tl.to(rec.inner, { scale: 1, duration: 0.2 }, end - 0.2);
+    tl.call(function () { rec.el.classList.remove('play-card'); ontoEls.forEach(function (r) { r.el.classList.remove('play-target'); }); }, null, end + 0.6);
+    return end;
+  };
+  // "Ravi: 9♠ captures 4♥ 5♦" - stays up until the next move
+  T.moveCaption = function (mv, view) {
+    var p = view.players[mv.p] || {};
+    var who = mv.p === view.me ? 'You' : p.name || '';
+    var verb = { capture: 'captures', build: 'builds ' + mv.value + ' with', pakka: 'makes a pakka ' + mv.value + ' with', cement: 'cements house ' + mv.value + ' with', raise: 'raises to ' + mv.value + ':', throw: 'throws' }[mv.kind] || 'plays';
+    if (!this.capEl) this.capEl = el('div', 'move-caption', this.root);
+    var box = this.capEl;
+    box.innerHTML = '';
+    var add = function (cls, text) { var e = el('span', cls, box); if (text != null) e.textContent = text; return e; };
+    // card pictures are set as styles (their data contains quotes, so they can't go inside the HTML)
+    var mini = function (f) { var e = el('i', 'mc-card', box); e.style.backgroundImage = Cards.faceUrl({ s: f.s, r: f.r }); };
+    add('mc-who', who);
+    mini(mv.card);
+    add('mc-verb', verb);
+    mv.parts.forEach(function (x) { if (x.house) add('mc-house', 'house ' + x.house + (x.pakka ? ' ✦' : '')); else mini(x); });
+    box.classList.toggle('mine', mv.p === view.me);
+    gsap.fromTo(box, { y: -8, opacity: 0 }, { y: 0, opacity: 1, duration: 0.3 });
+  };
+  T.countdown = function () {
+    var self = this;
+    var b = el('div', 'countdown', this.fx, '');
+    var steps = ['3', '2', '1', 'GO!'];
+    var tl = gsap.timeline({ onComplete: function () { b.remove(); } });
+    steps.forEach(function (t, i) {
+      tl.call(function () { b.textContent = t; b.classList.toggle('go', t === 'GO!'); S.play(t === 'GO!' ? 'uno' : 'tick'); }, null, i * 0.7)
+        .fromTo(b, { scale: 2.2, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.3, ease: 'back.out(2)' }, i * 0.7)
+        .to(b, { opacity: 0, scale: 0.7, duration: 0.25 }, i * 0.7 + 0.42);
+    });
+  };
   T.banner = function (text, cls) {
     var b = el('div', 'banner ' + (cls || ''), this.fx, text);
     gsap.timeline({ onComplete: function () { b.remove(); } })
@@ -1211,6 +1268,10 @@
           tl.call(function () { S.play('win'); self.bubble(e.p, window.UNOIcons.svg('party') + ' DARE DONE!', 'uno'); }, null, 0); break;
         case 'match':
           tl.call(function () { if (e.bonus) { S.play('color'); self.float('pile', e.bonus === 'double' ? 'DOUBLE COLOR MATCH!' : 'COLOR MATCH!', 'claim'); } }, null, at + 0.4); break;
+        /* ---------- every game: 3-2-1 before the first move of a round ---------- */
+        case 'deal':
+          if (!e.more) tl.call(function () { self.countdown(); }, null, at + Math.min(3.2, (e.order ? e.order.length : 20) * 0.065 / Math.max(0.6, self.speed || 1)) + 0.3);
+          break;
         /* ---------- Desi games ---------- */
         case 'thulla':
           tl.call(function () { S.play('thulla'); S.say('Thulla!', 'hi'); self.bubble(e.p, 'THULLA!', 'caught'); self.shake(6); }, null, at); break;
@@ -1341,6 +1402,7 @@
 
   T.clear = function () {
     var self = this;
+    if (this.capEl) { this.capEl.remove(); this.capEl = null; }
     Object.keys(this.cards).forEach(function (id) { self.cards[id].el.remove(); });
     this.cards = {};
     Object.keys(this.seats).forEach(function (id) { self.seats[id].remove(); });

@@ -3,11 +3,21 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-  <meta name="theme-color" content="#0b3d2c">
+  <meta name="theme-color" content="#120a0c">
   <meta name="description" content="Play UNO Classic, Flip, No Mercy, All Wild, Attack, Liar's, Dare and DOS in 3D - against the computer, pass & play, or online with friends.">
   <title>UNO Arena</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
+  <!-- iPhone / iPad: home-screen app -->
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="UNO Arena">
+  <meta name="application-name" content="UNO Arena">
+  <!-- optional separate game server for online play (e.g. wss://your-app.onrender.com); empty = this site -->
+  <meta name="uno-server" content="">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Yatra+One&family=Cinzel:wght@600;800&family=Tiro+Devanagari+Hindi&display=swap">
   <link rel="stylesheet" href="css/style.css">
@@ -35,6 +45,7 @@
           <button data-hall="uno"><i data-icon="cards-01"></i> UNO</button><button data-hall="indian"><i data-icon="sparkles"></i> Desi</button><button data-hall="pro"><i data-icon="champion"></i> Pro</button><i class="hall-knob"></i>
         </div>
         <div class="lp-nav-r">
+          <button class="lp-install hidden" id="btnInstall" title="Install the app"><i data-icon="smart-phone-01"></i><span>Install app</span></button>
           <button class="lp-round" id="btnSettingsHome" title="Settings"><i data-icon="settings-01"></i></button>
           <button class="cta cta-yellow cta-sm" id="navPlay"><i data-icon="play"></i> Play now</button>
         </div>
@@ -156,7 +167,8 @@
             </div>
             <div class="gs-block">
               <div class="gs-label">Difficulty</div>
-              <div class="seg gs-level" id="cpuLevel"><button data-v="easy">Easy</button><button data-v="normal" class="active">Normal</button><button data-v="hard">Hard</button><button data-v="mixed">Mixed</button></div>
+              <div class="seg gs-level" id="cpuLevel"><button data-v="easy">Easy</button><button data-v="normal" class="active">Normal</button><button data-v="hard">Hard</button><button data-v="adaptive">Adaptive</button></div>
+              <p class="gs-level-help" id="levelHelp"></p>
             </div>
           </div>
           <div class="mode-pane hidden" data-pane="pass">

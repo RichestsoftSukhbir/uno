@@ -446,6 +446,9 @@
     $('#houseRules').open = false;
     buildOptForm($('#optForm'), variant, setup.opts, function (k, v) { setup.opts[k] = v; rulesSummary(); });
     renderLineup();
+    if (setup.level === 'mixed') setup.level = 'adaptive';
+    $$('#cpuLevel button').forEach(function (x) { x.classList.toggle('active', x.dataset.v === setup.level); });
+    levelHelp();
     setMode(setup.mode);
     renderPass();
     showScreen('setup');
@@ -464,6 +467,14 @@
     $('#rulesSummary').textContent = parts.join(' · ');
     var n = setup.mode === 'pass' ? setup.pass.length : setup.cpuCount + 1;
     $('#startSummary').textContent = n + ' players' + (setup.mode === 'cpu' ? ' · ' + setup.level.charAt(0).toUpperCase() + setup.level.slice(1) : '');
+  }
+  function levelHelp() {
+    $('#levelHelp').textContent = {
+      easy: 'Relaxed CPUs that forget what was played - good for learning.',
+      normal: 'Solid CPUs that remember who has run out of a suit.',
+      hard: 'Sharp CPUs: they count cards, set traps and rarely slip.',
+      adaptive: 'Starts at Normal. Win and the CPUs step up to Hard; lose and they ease off to Easy.'
+    }[setup.level] || '';
   }
   // you + the CPUs you're up against
   function renderLineup() {
@@ -559,7 +570,8 @@
     var seats = [{ name: settings.name || 'You', kind: 'human', avatar: settings.avatar }];
     var names = BOT_NAMES.slice().sort(function () { return Math.random() - 0.5; });
     for (var i = 0; i < n; i++) {
-      var lv = level === 'mixed' ? ['easy', 'normal', 'hard'][i % 3] : level;
+      // adaptive starts at normal and moves with your results (see adaptLevel)
+      var lv = level === 'adaptive' || level === 'mixed' ? 'normal' : level;
       seats.push({ name: names[i], kind: 'bot', level: lv, avatar: BOT_AVATARS[BOT_NAMES.indexOf(names[i]) % BOT_AVATARS.length] });
     }
     return seats;
@@ -603,7 +615,7 @@
       };
     });
     $$('#cpuLevel button').forEach(function (b) {
-      b.onclick = function () { setup.level = b.dataset.v; $$('#cpuLevel button').forEach(function (x) { x.classList.toggle('active', x === b); }); rulesSummary(); };
+      b.onclick = function () { setup.level = b.dataset.v; $$('#cpuLevel button').forEach(function (x) { x.classList.toggle('active', x === b); }); levelHelp(); rulesSummary(); };
     });
     $('#cpuAvatar').onclick = function () { pickAvatar(function (a) { settings.avatar = a; saveSettings(); $('#cpuAvatar').innerHTML = av(a); $('#onAvatar').innerHTML = av(a); renderLineup(); }); };
     $('#onAvatar').onclick = $('#cpuAvatar').onclick;
@@ -621,7 +633,7 @@
       if (setup.variant === 'dare' && setup.opts.dareDeck === 'adult' && !isAdultVerified()) {
         return ageGate(function (ok) { if (ok) $('#btnStart').click(); else { setup.opts.dareDeck = 'family'; openSetup('dare', setup.mode); } });
       }
-      if (setup.mode === 'cpu') startLocal(setup.variant, setup.opts, cpuSeats(setup.cpuCount, setup.level));
+      if (setup.mode === 'cpu') { startLocal(setup.variant, setup.opts, cpuSeats(setup.cpuCount, setup.level)); app.session.adaptive = setup.level === 'adaptive' ? { level: 'normal', streak: 0 } : null; }
       else if (setup.mode === 'pass') {
         if (!setup.pass.some(function (p) { return p.kind === 'human'; })) return toast('Add at least one human player', 'error');
         var PV = E.VARIANTS[setup.variant];
@@ -668,6 +680,45 @@
     $('#jlGo', card).onclick = go;
     $('#jlName', card).addEventListener('keydown', function (e) { if (e.key === 'Enter') go(); });
     if (!settings.name) setTimeout(function () { $('#jlName', card).focus(); }, 300);
+  }
+  /* ------------------------------------------------------------------ */
+  /* install as an app (PWA)                                             */
+  /* ------------------------------------------------------------------ */
+  function isInstalled() {
+    return (window.matchMedia && (matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches)) || navigator.standalone === true;
+  }
+  function isIOS() { return /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); }
+  function setupInstall() {
+    var btn = $('#btnInstall');
+    document.body.classList.toggle('pwa', isInstalled());
+    if (isInstalled()) return;
+    var deferred = null;
+    window.addEventListener('beforeinstallprompt', function (e) {
+      // Android / desktop Chrome & Edge: keep the browser's prompt for our own button
+      e.preventDefault();
+      deferred = e;
+      btn.classList.remove('hidden');
+    });
+    window.addEventListener('appinstalled', function () { deferred = null; btn.classList.add('hidden'); toast('Installed! Find UNO Arena on your home screen.', 'info'); });
+    if (isIOS()) btn.classList.remove('hidden');          // iPhone has no prompt - show how to add it
+    btn.onclick = function () {
+      if (deferred) {
+        deferred.prompt();
+        deferred.userChoice.then(function (r) { if (r.outcome === 'accepted') btn.classList.add('hidden'); deferred = null; });
+        return;
+      }
+      if (isIOS()) return iosInstallGuide();
+      toast('Use your browser menu: "Install app" or "Add to Home screen"', 'info');
+    };
+  }
+  function iosInstallGuide() {
+    modal('<div class="install-guide"><img src="icons/apple-touch-icon.png" alt="" class="ig-icon"><h2>Install UNO Arena</h2>' +
+      '<p class="hint">Play full-screen from your home screen, like any other game.</p>' +
+      '<ol class="ig-steps">' +
+      '<li><span class="ig-n">1</span><span>Tap the <b>Share</b> button <span class="ig-share" aria-hidden="true"></span> in Safari\'s toolbar</span></li>' +
+      '<li><span class="ig-n">2</span><span>Scroll down and tap <b>Add to Home Screen</b></span></li>' +
+      '<li><span class="ig-n">3</span><span>Tap <b>Add</b> - the UNO Arena icon appears on your home screen</span></li></ol>' +
+      '<button class="btn big primary" data-close>Got it</button></div>', { cls: 'install-modal' });
   }
   function ensureName() {
     if (!settings.name) { toast('Enter your name first', 'error'); $('#onName').focus(); return false; }
@@ -1461,8 +1512,26 @@
   }
 
   /* round end */
+  // Adaptive difficulty: win and the CPUs get sharper, lose and they ease off
+  function adaptLevel(v) {
+    var s = app.session, ad = s && s.adaptive;
+    if (!ad || !v.roundResult || ad.round === v.round) return;
+    ad.round = v.round;
+    var rr = v.roundResult, winners = rr.winners || [rr.winner];
+    var won = winners.indexOf(v.me) >= 0;
+    // a "win" only counts if you beat most of the table (in Bhabhi everyone but one player wins)
+    var good = won && winners.length <= Math.ceil(v.players.length / 2);
+    var bad = !won || (v.variant === 'bhabhi' && v.players[v.me].tag === 'BHABHI');
+    var order = ['easy', 'normal', 'hard'], i = order.indexOf(ad.level);
+    var next = good ? order[Math.min(2, i + 1)] : bad ? order[Math.max(0, i - 1)] : ad.level;
+    if (next === ad.level) return;
+    ad.level = next;
+    s.game.players.forEach(function (p) { if (p.kind === 'bot') p.level = next; });
+    setTimeout(function () { toast(good ? 'Nice! The CPUs step up to ' + next.toUpperCase() : 'The CPUs ease off to ' + next.toUpperCase(), 'info'); }, 900);
+  }
   function showRoundEnd(v) {
     if (!v || v.phase !== 'roundOver' || !v.roundResult) return;
+    adaptLevel(v);
     if (v.engine === 'patti') return showPattiRoundEnd(v);
     var rr = v.roundResult;
     var pts = v.options.scoreMode === 'points';
@@ -1862,6 +1931,7 @@
     if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
       navigator.serviceWorker.register('sw.js').catch(function () { /* optional */ });
     }
+    setupInstall();
     // warm the cache with the table photos while people look at the home page
     var warm = function () {
       var small = window.innerWidth <= 900;

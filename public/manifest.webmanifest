@@ -1,11 +1,27 @@
 {
-  "name": "UNO Arena",
+  "id": "./",
+  "name": "UNO Arena - Card Games",
   "short_name": "UNO Arena",
-  "description": "3D UNO: Classic, Flip, No Mercy, All Wild, Attack, Liar's, Dare and DOS.",
-  "start_url": "./",
+  "description": "UNO, Desi Patti and Card Room games in 3D: Classic UNO and its variants, Bhabhi, Seep, Teen Patti, Court Piece, Hold'em, Rummy and more. Play vs CPU, pass & play or online.",
+  "start_url": "./?source=pwa",
+  "scope": "./",
   "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
   "orientation": "any",
-  "background_color": "#07130e",
-  "theme_color": "#0b3d2c",
-  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+  "background_color": "#120a0c",
+  "theme_color": "#120a0c",
+  "categories": ["games", "entertainment"],
+  "lang": "en",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ],
+  "screenshots": [
+    { "src": "icons/shot-home.webp", "sizes": "828x1792", "type": "image/webp", "form_factor": "narrow", "label": "Pick a hall: UNO, Desi Patti or the Card Room" },
+    { "src": "icons/shot-game.webp", "sizes": "828x1792", "type": "image/webp", "form_factor": "narrow", "label": "Real 3D card tables" },
+    { "src": "icons/shot-wide.webp", "sizes": "1600x900", "type": "image/webp", "form_factor": "wide", "label": "Play on any screen" }
+  ]
 }

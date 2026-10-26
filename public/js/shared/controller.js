@@ -26,6 +26,7 @@
     this.speed = this.opts.speed || 1;
   }
   var P = Controller.prototype;
+  P.COUNTDOWN_MS = 3200;
 
   P.isBot = function (pid) {
     if (this.opts.isBot) return this.opts.isBot(pid);
@@ -76,6 +77,7 @@
       else if (e.t === 'bluffCall' || e.t === 'showdown' || e.t === 'sidecompare') ms += 1200;
       else if (e.t === 'bluffPlay' || e.t === 'bet' || e.t === 'pick' || e.t === 'pairs' || e.t === 'build' || e.t === 'throw' || e.t === 'cement') ms += 450;
       else if (e.t === 'seep' || e.t === 'lastCard') ms += 900;
+      else if (e.t === 'showPlay') ms += 1500;            // the table pauses on each Seep move so everyone sees it
       else if (e.t === 'bid' || e.t === 'floor') ms += 600;
       else if (e.t === 'draw') ms += 350 + Math.min(e.n, 12) * 110;
       else if (e.t === 'flip') ms += 1300;
@@ -99,6 +101,10 @@
     // per-game pacing (e.g. Seep): a short pause after every move so the table settles before the next turn
     var pace = (g.V && g.V.pace) || {};
     if (pace.settle && events && events.length) anim += pace.settle * this.speed;
+    // a fresh round: the table shows a 3-2-1 countdown before anyone moves
+    if ((events || []).some(function (e) { return e.t === 'deal' && !e.more; })) anim += P.COUNTDOWN_MS;
+    // Seep: the four floor cards land, then everyone gets a moment to look before the bid is played
+    if ((events || []).some(function (e) { return e.t === 'floor'; })) anim += (pace.floorLook || 0) * this.speed;
 
     if (g.phase === 'roundOver') {
       var allBots = g.players.every(function (p, i) { return self.isBot(i); });
