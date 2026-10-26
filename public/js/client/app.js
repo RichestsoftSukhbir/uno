@@ -105,7 +105,7 @@
   /* ------------------------------------------------------------------ */
   /* settings                                                            */
   /* ------------------------------------------------------------------ */
-  var DEFAULT_SETTINGS = { sound: true, voice: true, volume: 0.7, anim: 1, theme: 'green', hints: true, sortHand: true, botSpeed: 1, name: '', avatar: 'panda', universe: 'uno', desiTheme: 'indian', desiDeck: 'modern' };
+  var DEFAULT_SETTINGS = { sound: true, voice: true, volume: 0.7, anim: 1, theme: 'green', hints: true, sortHand: true, sortMode: 'suit', botSpeed: 1, name: '', avatar: 'panda', universe: 'uno', desiTheme: 'indian', desiDeck: 'modern' };
   var settings = Object.assign({}, DEFAULT_SETTINGS);
   try { Object.assign(settings, JSON.parse(localStorage.getItem('uno.settings') || '{}')); } catch (e) { /* ignore */ }
   // the light deck became the default: move anyone who never picked a deck onto it
@@ -590,6 +590,7 @@
   }
   function bindSetup() {
     $$('[data-back]').forEach(function (b) { b.onclick = function () { showScreen('home'); }; });
+    $('#btnSort').onclick = cycleSort;
     $$('#modeTabs button').forEach(function (b) { b.onclick = function () { setMode(b.dataset.mode); }; });
     $$('#screen-setup .gs-step').forEach(function (b) {
       b.onclick = function () {
@@ -696,6 +697,7 @@
       onOppCardClick: onOppCardClick,
       onToast: toast,
       sortHand: function () { return settings.sortHand; },
+      sortMode: function () { return settings.sortHand === false && !settings.sortPicked ? 'none' : settings.sortMode || 'suit'; },
       queueBoost: function () { return app.queue.length > 2 ? 2.2 : (app.queue.length > 0 ? 1.4 : 1); },
       isLocalHuman: function (pid) { return app.session && app.session.type === 'local' && app.session.humans.indexOf(pid) >= 0; }
     });
@@ -963,7 +965,10 @@
     });
   }
   var BTN_STYLE = { green: 'ab-green', yellow: 'ab-yellow', red: 'ab-red', blue: 'ab-blue', wild: 'ab-wild' };
-  var BTN_ICON = { pass: 'arrow-right-01', bluff: 'alert-02', see: 'eye', chaal: 'checkmark-circle-02', raise: 'flash', pack: 'cancel-01', show: 'cards-01', sideshow: 'view-off', allin: 'fire', accept: 'checkmark-circle-02', deny: 'cancel-01', play: 'play' };
+  var BTN_ICON = { pass: 'arrow-right-01', bluff: 'alert-02', see: 'eye', chaal: 'checkmark-circle-02', raise: 'flash', pack: 'cancel-01', show: 'cards-01', sideshow: 'view-off', allin: 'fire', accept: 'checkmark-circle-02', deny: 'cancel-01', play: 'play',
+    // Pro card room
+    bet: 'diamond', check: 'checkmark-circle-02', call: 'handshake', fold: 'cancel-01', hit: 'plus-sign', stand: 'pause', double: 'layers-01',
+    drawDeck: 'cards-02', drawOpen: 'refresh-ccw', drop: 'logout-03', declare: 'champion' };
   function renderPattiHud(v, early) {
     var m = v.me != null ? v.players[v.me] : null;
     var myTurn = v.actor === v.me && v.me != null;
@@ -992,9 +997,10 @@
     if (box.dataset.k !== sigKey) {
       box.dataset.k = sigKey;
       box.innerHTML = '';
+      box.classList.toggle('many', btns.length > 3);
       btns.forEach(function (b) {
         var el = document.createElement('button');
-        el.className = 'act-btn ' + (BTN_STYLE[b.style] || 'ab-blue');
+        el.className = 'act-btn labelled ' + (BTN_STYLE[b.style] || 'ab-blue');
         el.disabled = !!b.disabled;
         el.innerHTML = '<span class="ab-ic">' + ic(b.icon) + '</span><span class="ab-txt">' + esc(b.label) + '</span>';
         el.onclick = function () { if (b.select) pattiPlaySelected(); else act(b.action); };
@@ -1133,8 +1139,34 @@
     if (app.table) app.table.refreshFaces();
   }
 
+  // the sort button by your hand: by suit/colour -> by rank/number -> as dealt
+  function sortNames(v) { var desi = v && v.engine === 'patti'; return { suit: desi ? 'By suit' : 'By colour', rank: desi ? 'By rank' : 'By number', none: 'As dealt' }; }
+  function updateSortBtn() {
+    var v = app.view, btn = $('#btnSort');
+    if (!btn) return;
+    var mode = settings.sortHand === false && !settings.sortPicked ? 'none' : settings.sortMode || 'suit';
+    btn.classList.toggle('hidden', !v || !me() || !!v.keepOrder || me().hand.length < 2);
+    btn.dataset.mode = mode;
+    $('#sortLabel').textContent = sortNames(v)[mode];
+  }
+  function cycleSort() {
+    // desi hands already arrive in suit order, so there "as dealt" would look the same as "by suit"
+    var order = app.view && app.view.engine === 'patti' ? ['suit', 'rank'] : ['suit', 'rank', 'none'];
+    var cur = settings.sortHand === false && !settings.sortPicked ? 'none' : settings.sortMode || 'suit';
+    if (order.indexOf(cur) < 0) cur = order[order.length - 1];
+    settings.sortMode = order[(order.indexOf(cur) + 1) % 3];
+    settings.sortHand = settings.sortMode !== 'none';
+    settings.sortPicked = true;
+    saveSettings();
+    S.play('shuffle');
+    updateSortBtn();
+    if (app.table && app.view) app.table.relayout();
+    gsap.fromTo('#btnSort .sb-ic i', { scaleX: 0.4 }, { scaleX: 1, duration: 0.35, stagger: 0.06, ease: 'back.out(2)' });
+  }
+
   function renderHud(v, early) {
     if (!v) return;
+    updateSortBtn();
     matchHall(v);
     renderBoard(v);
     document.body.dataset.playing = v.engine;
@@ -1547,7 +1579,7 @@
       '<label class="opt"><span>Table</span><select data-k="theme"><option value="green">Green felt</option><option value="blue">Blue felt</option><option value="red">Casino red</option><option value="purple">Midnight</option><option value="wood">Wooden table</option></select></label>' +
       '<label class="opt"><span>Desi card design</span><select data-k="desiDeck"><option value="modern">Light &ndash; Modern (easy to read)</option><option value="noir">Dark &ndash; Noir gold</option><option value="indian">Indian ivory</option><option value="pro">Classic white</option><option value="theme">Match the hall theme</option></select></label>' +
       '<label class="opt"><input type="checkbox" data-k="hints"' + (s.hints ? ' checked' : '') + '><span>Highlight playable cards</span></label>' +
-      '<label class="opt"><input type="checkbox" data-k="sortHand"' + (s.sortHand ? ' checked' : '') + '><span>Sort my hand by colour</span></label>' +
+      '<label class="opt"><input type="checkbox" data-k="sortHand"' + (s.sortHand ? ' checked' : '') + '><span>Sort my hand (also the Sort button by your cards)</span></label>' +
       '</div><div class="pr-btns"><button class="btn primary" data-close>Done</button></div>');
     $$('select[data-k]', card).forEach(function (el) { el.value = String(s[el.dataset.k]); });
     $$('[data-k]', card).forEach(function (el) {
@@ -1556,7 +1588,7 @@
         s[k] = el.type === 'checkbox' ? el.checked : (el.type === 'range' || k === 'anim' || k === 'botSpeed' ? +el.value : el.value);
         saveSettings();
         if (k === 'desiDeck') { s.deckPicked = true; saveSettings(); }
-        if (k === 'sortHand' && app.table && app.view) app.table.relayout();
+        if (k === 'sortHand') { s.sortMode = s.sortHand ? 'suit' : 'none'; s.sortPicked = true; saveSettings(); updateSortBtn(); if (app.table && app.view) app.table.relayout(); }
         if (k === 'sound' && s.sound) S.play('pop');
       };
     });
@@ -1664,8 +1696,17 @@
   function addChat(m) {
     var html = m.from == null ? '<div class="sys">' + esc(m.text) + '</div>' : '<div class="chat-line">' + av(m.avatar, 'sm') + '<span><b>' + esc(m.from) + ':</b> ' + esc(m.text) + '</span></div>';
     ['#lobbyChat', '#gameChat'].forEach(function (s) { var el = $(s); el.insertAdjacentHTML('beforeend', html); el.scrollTop = el.scrollHeight; });
-    if (app.screen === 'game' && !$('#chatPanel').classList.contains('open')) $('#chatDot').classList.remove('hidden');
-    if (app.screen === 'game' && m.from != null && app.table) toast(m.from + ': ' + m.text, 'chat');
+    if (app.screen === 'game' && !$('#chatPanel').classList.contains('open')) {
+      $('#chatDot').classList.remove('hidden');
+      // show it on the table too, so nobody has to open the chat to read it
+      if (m.from != null && app.view && app.table) {
+        var short = m.text.length > 60 ? m.text.slice(0, 57) + '…' : m.text;
+        var seat = app.view.players.filter(function (p) { return p.name === m.from; })[0];
+        if (seat && seat.id !== app.view.me) app.table.bubble(seat.id, esc(short), 'chat');
+        else if (!seat) toast(m.from + ': ' + short, 'info');
+        S.play('pop');
+      }
+    }
   }
   // invite links: opening one joins the room straight away
   function inviteUrl() { return location.origin + location.pathname + '?room=' + $('#lobbyCode').textContent; }

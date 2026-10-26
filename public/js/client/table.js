@@ -509,10 +509,19 @@
     });
   };
 
+  // sort modes: 'suit' (by suit / colour), 'rank' (by number), anything else = as dealt
   T.sortHand = function (cards) {
-    if (!this.opts.sortHand || !this.opts.sortHand()) return cards;
+    var mode = this.opts.sortMode ? this.opts.sortMode() : (this.opts.sortHand && this.opts.sortHand() ? 'suit' : 'none');
+    if (mode !== 'suit' && mode !== 'rank') return cards;
     var v = this.view;
     if (v.keepOrder) return cards;            // Rummy: the engine already groups the hand into melds
+    if (v.engine === 'patti' && mode === 'rank') {
+      var SO2 = 'SHCD', RO2 = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+      return cards.slice().sort(function (a, b) {
+        if (!a.a || !b.a) return a.a ? -1 : b.a ? 1 : 0;
+        return (RO2.indexOf(a.a.r) - RO2.indexOf(b.a.r)) || (SO2.indexOf(a.a.s) - SO2.indexOf(b.a.s));
+      });
+    }
     if (v.engine === 'patti') {
       // suits alternate colour (♠ ♥ ♣ ♦), ranks low to high with the Ace on top
       var SO = 'SHCD', RO = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
@@ -528,6 +537,7 @@
     return cards.slice().sort(function (a, b) {
       var fa = f(a), fb = f(b);
       var d = order.indexOf(fa.c) - order.indexOf(fb.c);
+      if (mode === 'rank') return rank(fa) - rank(fb) || d;
       return d || rank(fa) - rank(fb);
     });
   };
@@ -698,7 +708,7 @@
       if (rec.loc !== 'mine' || drag) return;
       clearTimeout(self.focusTimer);
       c.classList.add('hover');
-      if (e.pointerType === 'mouse' && rec.target) self.setHandFocus(rec.target.order);
+      if (e.pointerType === 'mouse' && rec.target) { var top = self.handCardAt(e.clientX, e.clientY) || rec; if (top.target) self.setHandFocus(top.target.order); }
       else gsap.to(rec.inner, { y: (rec.target ? rec.target.iy : 0) - 26, duration: 0.18, ease: 'power2.out' });
     });
     c.addEventListener('pointerleave', function () {
@@ -717,12 +727,15 @@
     c.addEventListener('pointerdown', function (e) {
       if (rec.loc !== 'mine') return;
       e.preventDefault();
-      var r = c.getBoundingClientRect();
-      drag = { x0: e.clientX, y0: e.clientY, moved: false, f: Math.max(0.2, r.height / CH), t0: performance.now(), lastY: e.clientY, lastT: performance.now(), vy: 0 };
+      // the browser's own 3D hit-test can hand us the card underneath: use the one really on top
+      var R = self.handCardAt(e.clientX, e.clientY) || rec;
+      var r = R.el.getBoundingClientRect();
+      drag = { rec: R, x0: e.clientX, y0: e.clientY, moved: false, f: Math.max(0.2, r.height / CH), t0: performance.now(), lastY: e.clientY, lastT: performance.now(), vy: 0 };
       try { c.setPointerCapture(e.pointerId); } catch (er) { /* ignore */ }
     });
     c.addEventListener('pointermove', function (e) {
       if (!drag) return;
+      var R = drag.rec;
       var dx = e.clientX - drag.x0, dy = e.clientY - drag.y0;
       // sliding sideways along the hand opens it up under the finger instead of dragging
       if (!drag.moved && (drag.scrub || (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.2))) {
@@ -730,37 +743,53 @@
         self.scrubTo(e.clientX);
         return;
       }
-      if (!drag.moved && Math.hypot(dx, dy) > 9) { drag.moved = true; c.classList.add('dragging'); S.play('flick'); }
+      if (!drag.moved && Math.hypot(dx, dy) > 9) { drag.moved = true; R.el.classList.add('dragging'); S.play('flick'); }
       if (drag.moved) {
         var now = performance.now();
         drag.vy = (e.clientY - drag.lastY) / Math.max(1, now - drag.lastT);
         drag.lastY = e.clientY; drag.lastT = now;
-        gsap.set(rec.inner, { x: dx / drag.f, y: (rec.target ? rec.target.iy : 0) + dy / drag.f, rotation: (rec.target ? rec.target.fan : 0) + dx / drag.f * 0.05 });
+        gsap.set(R.inner, { x: dx / drag.f, y: (R.target ? R.target.iy : 0) + dy / drag.f, rotation: (R.target ? R.target.fan : 0) + dx / drag.f * 0.05 });
       }
     });
     function end(e) {
       if (!drag) return;
-      var d = drag;
+      var d = drag, R = d.rec;
       drag = null;
-      c.classList.remove('dragging');
+      R.el.classList.remove('dragging');
       var dy = e.clientY - d.y0;
       if (d.scrub) { clearTimeout(self.focusTimer); self.focusTimer = setTimeout(function () { self.setHandFocus(null); }, 1600); return; }
       if (!d.moved) {
-        if (self.opts.onCardClick) self.opts.onCardClick(rec.id);
+        if (self.opts.onCardClick) self.opts.onCardClick(R.id);
         return;
       }
       var thrown = dy < -90 || (dy < -40 && d.vy < -0.6);
       // dropped onto a card lying on the table? (Seep: play it onto that card / house)
-      var dropOn = d.moved ? self.zoneCardAt(e.clientX, e.clientY, rec.id) : null;
+      var dropOn = d.moved ? self.zoneCardAt(e.clientX, e.clientY, R.id) : null;
       if ((thrown || dropOn) && self.opts.onCardThrow) {
-        self.pendingThrow = rec.id;
-        self.opts.onCardThrow(rec.id, dropOn);
+        self.pendingThrow = R.id;
+        self.opts.onCardThrow(R.id, dropOn);
       }
       // spring back (if the play is accepted the next update flies it to the pile)
-      gsap.to(rec.inner, { x: 0, y: rec.target ? rec.target.iy : 0, rotation: rec.target ? rec.target.fan : 0, duration: 0.45, ease: 'back.out(1.6)' });
+      gsap.to(R.inner, { x: 0, y: R.target ? R.target.iy : 0, rotation: R.target ? R.target.fan : 0, duration: 0.45, ease: 'back.out(1.6)' });
     }
     c.addEventListener('pointerup', end);
     c.addEventListener('pointercancel', end);
+  };
+  // which card of my hand is really on top at a screen point: every hand card under the point,
+  // keep the right-most (each card lies on the one to its left). elementsFromPoint gets the
+  // geometry right even when its stacking order is wrong for overlapping 3D cards.
+  T.handCardAt = function (x, y) {
+    var els = document.elementsFromPoint ? document.elementsFromPoint(x, y) : [];
+    var best = null, seen = {};
+    for (var i = 0; i < els.length; i++) {
+      var c = els[i].closest && els[i].closest('.card');
+      if (!c || seen[c.dataset.id]) continue;
+      seen[c.dataset.id] = true;
+      var rec = this.cards[c.dataset.id];
+      if (!rec || rec.loc !== 'mine' || !rec.target) continue;
+      if (!best || rec.target.order > best.target.order) best = rec;
+    }
+    return best;
   };
   // focus the card of my hand nearest to a screen x position
   T.scrubTo = function (clientX) {

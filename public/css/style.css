@@ -1486,3 +1486,42 @@ body:not([data-desi-theme="pro"]) .hall-pro, body[data-desi-theme="pro"] .hall-i
   .lobby .setup-foot { padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); }
   #lobbyStart { flex: 1; }
 }
+
+/* sort button by the hand */
+.sort-btn { position: absolute; left: 14px; bottom: 100px; z-index: 9; display: flex; align-items: center; gap: 9px; padding: 6px 14px 6px 6px; border-radius: 16px; cursor: pointer; color: #fff;
+  background: linear-gradient(180deg, rgba(40,32,26,.94), rgba(20,16,14,.94)); border: 2px solid rgba(255,214,120,.4); box-shadow: 0 4px 0 rgba(0,0,0,.45); }
+.sort-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 rgba(0,0,0,.45); }
+.sort-btn.hidden { display: none; }
+.sb-ic { width: 34px; height: 34px; border-radius: 10px; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; gap: 4px; padding: 0 7px;
+  background: linear-gradient(180deg, #ffe066, #ffb300); box-shadow: 0 2px 0 #8a5a00; }
+.sb-ic i { display: block; height: 3px; border-radius: 2px; background: #2a1500; transform-origin: left center; }
+.sb-ic i:nth-child(1) { width: 20px; } .sb-ic i:nth-child(2) { width: 14px; } .sb-ic i:nth-child(3) { width: 8px; }
+.sort-btn[data-mode="rank"] .sb-ic i:nth-child(1) { width: 8px; } .sort-btn[data-mode="rank"] .sb-ic i:nth-child(3) { width: 20px; }
+.sort-btn[data-mode="none"] .sb-ic { background: linear-gradient(180deg, #4a4256, #2e2838); box-shadow: 0 2px 0 #0b090e; }
+.sort-btn[data-mode="none"] .sb-ic i { background: #cfc6d8; width: 14px; }
+.sb-txt { display: flex; flex-direction: column; line-height: 1.05; text-align: left; }
+.sb-txt small { font-size: 10.5px; color: #cdbfa6; text-transform: uppercase; letter-spacing: 1px; }
+.sb-txt b { font: 15px var(--fun); }
+body[data-desi-theme="pro"][data-playing="patti"] .sort-btn { background: linear-gradient(180deg, rgba(22,30,28,.94), rgba(10,14,13,.94)); }
+@media (max-height: 560px) { .sort-btn { bottom: 70px; } }
+@media (max-width: 700px) {
+  .sort-btn { left: 8px; bottom: calc(24vh + 8px); padding: 4px; border-radius: 14px; }
+  .sb-txt { display: none; }
+}
+.bubble.chat { max-width: 220px; white-space: normal; font: 700 14px/1.25 'Segoe UI', system-ui, sans-serif; text-transform: none; letter-spacing: 0; padding: 8px 12px; background: #fff; color: #1b1622; }
+/* desi / card-room action buttons always keep their label (several choices at once - an icon alone can't tell them apart) */
+@media (max-aspect-ratio: 9/10), (max-width: 720px) {
+  .patti-btns { display: grid; grid-template-columns: 1fr; gap: 8px; justify-items: end; }
+  .patti-btns.many { grid-template-columns: 1fr 1fr; }
+  .act-btn.labelled { width: auto; min-width: 0; height: 40px; border-radius: 14px; padding: 0 12px 0 4px; gap: 6px; font-size: 13px; justify-content: flex-start; transform: none; }
+  .act-btn.labelled .ab-txt { display: inline; }
+  .act-btn.labelled .ab-ic { width: 30px; height: 30px; }
+  .act-btn.labelled .ab-ic .ic { width: 17px; height: 17px; }
+  .act-btn.labelled:nth-child(even) { transform: none; }
+}
+@media (max-aspect-ratio: 9/10), (max-width: 720px) {
+  .patti-btns { justify-items: stretch; width: min(320px, 78vw); }
+  .patti-btns:not(.many) { width: min(190px, 52vw); }
+  .patti-btns .act-btn.labelled { width: 100%; }
+  .act-btn.labelled .ab-txt { overflow: hidden; text-overflow: ellipsis; }
+}

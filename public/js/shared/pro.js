@@ -144,7 +144,7 @@
       var potTo = this.currentBet + Math.max(this.minRaise, this.pot + toCall);
       [minTo, potTo].forEach(function (to, i) {
         var add = to - this.bet[p];
-        if (add < stack && !out.some(function (x) { return x.to === to; })) out.push({ type: 'raise', key: 'raise' + to, to: to, amount: add, label: word + to + (i ? ' (pot)' : ''), style: 'yellow' });
+        if (add < stack && !out.some(function (x) { return x.to === to; })) out.push({ type: 'raise', key: 'raise' + to, to: to, amount: add, label: i ? 'Pot ' + to : word + to, style: 'yellow' });
       }, this);
       out.push({ type: 'allin', key: 'allin', amount: stack, label: 'All in ' + stack, style: 'wild' });
     }
