@@ -859,6 +859,24 @@
   }
 
   /* Desi games */
+  // a short reason when a card in your hand can't be played right now
+  function whyBlocked(v, id) {
+    var c = (me() ? me().hand : []).filter(function (x) { return x.id === id; })[0];
+    if (!c || !c.a) return '';
+    var f = c.a, name = window.UNOPattiArt ? window.UNOPattiArt.short(f) : f.r;
+    var trick = (v.zones || []).filter(function (z) { return z.type === 'trick'; })[0];
+    if (trick && trick.cards.length && trick.cards[0].cv.a && trick.cards[0].cv.a.s !== f.s) return 'You have to follow ' + { S: '♠', H: '♥', D: '♦', C: '♣' }[trick.cards[0].cv.a.s] + ' while you still hold that suit';
+    if (v.variant === 'seep') {
+      var R = window.UNOPatti && window.UNOPatti.SeepRules;
+      if (v.phase === 'bidplay' && v.bid) return 'Your first play must be for your bid of ' + v.bid;
+      if (R) {
+        var ctx = R.fromView(v), card = ctx.hand.filter(function (x) { return x.id === id; })[0];
+        if (card && !R.keepsHouseCard(ctx, card, { type: 'throw', items: [] })) return name + ' is your last card for your house of ' + window.UNOPatti.low(f.r) + ' - keep it to capture the house';
+        if (ctx.noThrowWithHouse && R.sideHasHouse(ctx)) return 'House rule: while your side has a house you must build, add or capture';
+      }
+    }
+    return '';
+  }
   function pattiCardClick(id) {
     var v = app.view;
     if (v.actor !== v.me) { S.play('error'); shakeCard(id); toast('Wait for your turn', 'info'); return; }
@@ -875,7 +893,7 @@
       return;
     }
     var moves = (v.legal || []).filter(function (a) { return a.cardId === id && a.type !== 'pick'; });
-    if (!moves.length) { S.play('error'); shakeCard(id); toast(v.status || 'That card can\'t be played now', 'info'); return; }
+    if (!moves.length) { S.play('error'); shakeCard(id); toast(whyBlocked(v, id) || v.status || 'That card can\'t be played now', 'info'); return; }
     if (moves.length === 1 && !v.placeable) { S.play('flick'); app.pattiChoice = null; act(moves[0]); return; }
     if (app.pattiChoice && app.pattiChoice.cardId === id) { app.pattiChoice = null; renderHud(v); return; }   // tap again to put it back
     // Seep: several things this card can do - pick from the list, or tap the floor cards it should go on

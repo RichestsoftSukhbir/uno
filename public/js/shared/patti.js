@@ -40,6 +40,7 @@
     // Bhabhi house rule: what happens when a player's final card can't be beaten by the next player
     scoring: { label: 'Scoring', type: 'select', choices: [['100', '100 points (spades, aces, 10 of diamonds)'], ['30', 'Punjabi 30 points (10♦ 12, 9♠ 9, aces, majority)']] },
     houseLimit: { label: 'Houses on the floor', type: 'select', choices: [['2', 'Two at most'], ['0', 'No limit']] },
+    houseThrow: { label: 'Throwing with a house down', type: 'select', choices: [['allow', 'Allowed - standard rules'], ['ban', 'Not allowed - while your side has a house you must build, add or capture']] },
     seepLimit: { label: 'Seeps per side', type: 'select', choices: [['2', 'Two at most - a third wipes them out'], ['0', 'No limit']] },
     match: { label: 'Match', type: 'select', choices: [['rounds', 'Fixed number of rounds'], ['baazi', 'Baazi - first side to lead by 100 (30 in Punjabi scoring)']] },
     opening: { label: 'Opening card', type: 'select', choices: [['7H', '7 of Hearts opens'], ['7D', '7 of Diamonds opens'], ['any', 'Any seven opens (first player to hold one)']] },
@@ -67,7 +68,7 @@
       defaults: { rounds: 1, decks: '1', turnTimer: 30 }, options: ['rounds', 'decks', 'turnTimer'] },
     seep: { id: 'seep', universe: 'desi', name: 'Seep (Sweep)', short: 'Seep', players: [2, 4], allowed: [2, 4], accent: '#2a9d8f', sig: { s: 'D', r: '10' },
       tagline: 'Build houses, capture by value and sweep the floor clean for 50 points.',
-      defaults: { rounds: 1, scoring: '100', houseLimit: '2', seepLimit: '2', match: 'rounds', turnTimer: 45 }, options: ['rounds', 'scoring', 'houseLimit', 'seepLimit', 'match', 'turnTimer'],
+      defaults: { rounds: 1, scoring: '100', houseLimit: '2', seepLimit: '2', houseThrow: 'allow', match: 'rounds', turnTimer: 45 }, options: ['rounds', 'scoring', 'houseLimit', 'seepLimit', 'houseThrow', 'match', 'turnTimer'],
       // turn pacing (ms): CPUs think a little longer, and every move gets a beat to settle on the table
       pace: { botDelay: 1100, settle: 450 } },
     sevens: { id: 'sevens', universe: 'desi', name: 'Satte Pe Satta', short: 'Satte Pe Satta', players: [3, 8], accent: '#e76f51', sig: { s: 'H', r: '7' },
@@ -1295,7 +1296,8 @@
     throwAllowed: function (ctx, c, others) {
       var t = { type: 'throw', items: [] };
       if (!SeepRules.fitsBid(ctx, c, t) || !SeepRules.keepsHouseCard(ctx, c, t)) return false;
-      return !SeepRules.sideHasHouse(ctx) || !others;
+      // house rule (off by default - not in the standard rules): no loose throws while your side has a house
+      return !ctx.noThrowWithHouse || !SeepRules.sideHasHouse(ctx) || !others;
     },
     // all legal moves for the player in ctx
     legal: function (ctx) {
@@ -1321,7 +1323,7 @@
       });
       return {
         floor: floor, hand: me.hand.filter(function (c) { return c.a; }).map(function (c) { return { id: c.id, s: c.a.s, r: c.a.r }; }),
-        p: v.me, phase: v.phase, bid: v.bid, houseLimit: +(v.options && v.options.houseLimit) || 0,
+        p: v.me, phase: v.phase, bid: v.bid, houseLimit: +(v.options && v.options.houseLimit) || 0, noThrowWithHouse: !!(v.options && v.options.houseThrow === 'ban'),
         sameSide: v.teams ? function (a, b) { return a % 2 === b % 2; } : null
       };
     }
@@ -1344,7 +1346,7 @@
   SP.side = function (p) { return this.teams ? p % 2 : p; };
   SP.ctx = function (p) {
     var self = this;
-    return { floor: this.floor, hand: this.players[p].hand, p: p, phase: this.phase, bid: this.bid, houseLimit: +this.o.houseLimit || 0,
+    return { floor: this.floor, hand: this.players[p].hand, p: p, phase: this.phase, bid: this.bid, houseLimit: +this.o.houseLimit || 0, noThrowWithHouse: this.o.houseThrow === 'ban',
       sameSide: this.teams ? function (a, b) { return self.side(a) === self.side(b); } : null };
   };
   SP.startRound = function () {

@@ -238,7 +238,8 @@
       '<b>Break / raise</b> someone else\'s ordinary house with one card from your hand (never loose cards, never your own house), if you hold the new value.',
       'Adding to an opponent\'s house needs a card of its value and makes you an owner; adding to your partner\'s house needs neither. A second house of the same value merges into the first and becomes pakka.',
       '<b>Two houses at most</b> (setup option, on by default): while two houses stand nobody may build a new one - you can still capture, add to or raise the existing houses.',
-      'A house owner must keep a card of its value until the house is captured. While your side has a house on the floor you may not throw a loose card if any other move is possible.',
+      'A house owner must keep a card of its value until the house is captured or broken - so your last card of that value can only be used to capture it.',
+      '<b>No throwing with a house down</b> (house rule, off by default): some tables don\'t let a side that owns a house throw a loose card while any other move is possible. Turn it on in Table rules if you play that way.',
       '<b>Throw</b>: put a card loose on the floor.',
       'When all cards are played, whoever captured last takes what is left on the floor.'
     ],

@@ -80,7 +80,9 @@ const c0 = x => x.hand[0];
 /* throwing */
 {
   const x = ctx([house(11, [0], false, ['5H', '6D']), loose('2C')], ['JS', '4H', '8D']);
-  check('with a house on the floor you may not throw if anything else is legal', !R.legal(x).some(a => a.type === 'throw'));
+  check('standard rules: a house owner may still throw any card except their last J', R.legal(x).some(a => a.type === 'throw' && x.hand.find(c => c.id === a.cardId).r === '4') && !R.legal(x).some(a => a.type === 'throw' && x.hand.find(c => c.id === a.cardId).r === 'J'));
+  const xb = Object.assign(ctx([house(11, [0], false, ['5H', '6D']), loose('2C')], ['JS', '4H', '8D']), { noThrowWithHouse: true });
+  check('house rule on: no throwing with a house down while other moves exist', !R.legal(xb).some(a => a.type === 'throw'));
   const y = ctx([loose('2C')], ['4H', '8D']);
   check('no house: throwing is allowed', R.legal(y).some(a => a.type === 'throw'));
 }
